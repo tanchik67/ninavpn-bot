@@ -1,0 +1,33 @@
+# Секреты и локальные данные
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite3
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Логи и временные файлы
+*.log
+tmp/
+temp/
+
+# Кэш geoip/geosite (v2ray RU rules)
+data/v2ray_geo/*.dat
+

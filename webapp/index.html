@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>NINAVPN</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/miniapp/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <p class="eyebrow">NINAVPN</p>
+      <h1 id="greeting">Быстрый VDS</h1>
+      <p class="sub">Тарифы и оплата — в боте. Здесь витрина и переход к оформлению.</p>
+    </header>
+    <section id="plans" class="plans" aria-live="polite">
+      <p class="loading">Загрузка тарифов…</p>
+    </section>
+    <footer class="foot">
+      <button type="button" class="btn primary" id="btn-bot">Оформить в боте</button>
+      <p class="hint" id="hint-bot"></p>
+    </footer>
+  </div>
+  <script src="/miniapp/static/app.js"></script>
+</body>
+</html>
