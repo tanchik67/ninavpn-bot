@@ -317,7 +317,7 @@ Deep link из Mini App: `https://t.me/<BOT_USERNAME>?start=plan_<plan_key>`.
 
 В **Т-Бизнес → интернет-эквайринг** укажите уведомления на `https://ваш-домен/payment/tbank`, либо задайте **`PAYMENT_PUBLIC_BASE_URL`** в `.env`.
 
-Переменные `.env` для Т-Банка: `TBANK_TERMINAL_KEY`, `TBANK_PASSWORD`, опционально `TBANK_TEST_MODE`, `PAYMENT_PUBLIC_BASE_URL` (см. `.env.example`).
+Переменные `.env` для Т-Банка: `TBANK_TERMINAL_KEY`, `TBANK_PASSWORD`, опционально `TBANK_TEST_MODE`, `PAYMENT_PUBLIC_BASE_URL` (см. `.env.example`). Проверка готовности: `./scripts/tbank-setup-check.sh` (на сервере из `/opt/ninavpn-bot`).
 
 Убедитесь, что файрвол не блокирует внешний HTTPS; локальный **8080** может оставаться только на localhost.
 

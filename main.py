@@ -139,13 +139,13 @@ async def tbank_notify(request: web.Request) -> web.Response:
 
 async def payment_success(request: web.Request) -> web.Response:
     """GET /payment/success — редирект после успешной оплаты."""
-    bot_href = html_escape(bot_telegram_https_url(), quote=True)
+    bot_href = html_escape(bot_telegram_https_url())
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Оплата прошла — NINAVPN</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
+*{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:#0a0a0f;color:#F0EEFF;font-family:'Segoe UI',sans-serif;
   display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}}
 .box{{max-width:420px;padding:48px 32px}}
@@ -167,13 +167,13 @@ a{{display:inline-block;background:linear-gradient(135deg,#7B2FFF,#FF2FA0);
 
 async def payment_fail(request: web.Request) -> web.Response:
     """GET /payment/fail — редирект при отказе от оплаты."""
-    bot_href = html_escape(bot_telegram_https_url(), quote=True)
+    bot_href = html_escape(bot_telegram_https_url())
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Оплата отменена — NINAVPN</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
+*{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:#0a0a0f;color:#F0EEFF;font-family:'Segoe UI',sans-serif;
   display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}}
 .box{{max-width:420px;padding:48px 32px}}

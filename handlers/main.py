@@ -143,6 +143,30 @@ async def cq_edit_message(
 FREEKASSA_AMOUNT_TOLERANCE = 0.02
 
 
+def parse_custom_start_param(raw: str) -> Optional[tuple[int, int]]:
+    """Парсит deep link с сайта: custom_6m_3d или custom_6m_3d_500rub."""
+    if not raw.startswith("custom_"):
+        return None
+    body = raw[7:]
+    if body.endswith("rub"):
+        idx = body.rfind("_")
+        if idx > 0:
+            tail = body[idx + 1 :]
+            if tail.endswith("rub") and tail[:-3].isdigit():
+                body = body[:idx]
+    segs = body.split("_")
+    if len(segs) < 2:
+        return None
+    try:
+        months = int(segs[0].replace("m", ""))
+        devices = int(segs[1].replace("d", ""))
+    except ValueError:
+        return None
+    if months not in (1, 6, 12) or not (1 <= devices <= 10):
+        return None
+    return months, devices
+
+
 async def _months_from_plan_key(plan_key: str) -> int:
     if plan_key.startswith("custom_"):
         return int(plan_key.split("_")[1].replace("m", ""))
@@ -534,6 +558,7 @@ async def cmd_start(message: Message, state: FSMContext):
     referrer_id = None
     ref_bonus = False
     plan_from_mini: Optional[str] = None
+    custom_from_site: Optional[tuple[int, int]] = None
     if len(args) > 1:
         raw = args[1].strip()
         if raw.startswith("ref"):
@@ -545,6 +570,8 @@ async def cmd_start(message: Message, state: FSMContext):
                     ref_bonus = True
             except ValueError:
                 pass
+        elif raw.startswith("custom_"):
+            custom_from_site = parse_custom_start_param(raw)
         elif raw.startswith("plan_"):
             pk = raw[5:]
             if pk:
@@ -556,6 +583,20 @@ async def cmd_start(message: Message, state: FSMContext):
         full_name=message.from_user.full_name or "",
         referrer_id=referrer_id,
     )
+
+    if custom_from_site:
+        months, devices = custom_from_site
+        rub, usdt = await calc_custom_price(months, devices)
+        plan_key = f"custom_{months}m_{devices}d"
+        entries = await get_payment_method_entries()
+        await message.answer(
+            txt_constructor_result(months, devices, rub, usdt, promo_bonus_days=0),
+            reply_markup=kb_payment_methods(
+                plan_key, devices, method_entries=entries
+            ),
+            parse_mode="HTML",
+        )
+        return
 
     if plan_from_mini:
         plans_cat = await get_plans_catalog()

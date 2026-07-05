@@ -188,9 +188,9 @@
     <a href="https://t.me/ninavpn_bot" target="_blank" class="modal-tg-btn">📱 Написать в Telegram</a>
     <div style="margin: 16px 0;">
       <div style="font-size:0.7rem; color:var(--muted); margin-bottom:8px;">🔥 Популярные тарифы</div>
-      <a href="https://t.me/ninavpn_bot?start=plan_month" class="modal-plan-link">⚡ 1 месяц — 100 ₽ · 1 устройство</a>
-      <a href="https://t.me/ninavpn_bot?start=plan_6month" class="modal-plan-link" style="border-color:var(--accent);">🔥 6 месяцев — 500 ₽ · 3 устройства</a>
-      <a href="https://t.me/ninavpn_bot?start=plan_year" class="modal-plan-link">💎 12 месяцев — 1000 ₽ · 5 устройств</a>
+      <a href="https://t.me/ninavpn_bot?start=plan_1m_1d" class="modal-plan-link">⚡ 1 месяц — 100 ₽ · 1 устройство</a>
+      <a href="https://t.me/ninavpn_bot?start=plan_6m_3d" class="modal-plan-link" style="border-color:var(--accent);">🔥 6 месяцев — 500 ₽ · 3 устройства</a>
+      <a href="https://t.me/ninavpn_bot?start=plan_12m_5d" class="modal-plan-link">💎 12 месяцев — 1000 ₽ · 5 устройств</a>
     </div>
     <p style="font-size:0.75rem;">🔒 Без логов · Возврат 24 часа · Работает в РФ</p>
   </div>
@@ -414,7 +414,7 @@
 
   window.buyConstructor = function() {
     const total = calculatePrice(selectedMonths, devices);
-    const url = `https://t.me/ninavpn_bot?start=custom_${selectedMonths}m_${devices}d_${total}rub`;
+    const url = `https://t.me/ninavpn_bot?start=custom_${selectedMonths}m_${devices}d`;
     window.open(url, '_blank');
   };
   document.getElementById('constructorBuyBtn')?.addEventListener('click', buyConstructor);
