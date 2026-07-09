@@ -16,6 +16,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify SSH secrets
+        run: |
+          missing=0
+          if [ -z "${{ secrets.SSH_HOST }}" ]; then
+            echo "::error::Secret SSH_HOST не задан"
+            missing=1
+          fi
+          if [ -z "${{ secrets.SSH_USER }}" ]; then
+            echo "::error::Secret SSH_USER не задан"
+            missing=1
+          fi
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "::error::Secret SSH_PRIVATE_KEY не задан"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "Настройка (один раз, на Mac с gh auth login):"
+            echo "  ./scripts/github-deploy-bootstrap.sh"
+            echo ""
+            echo "Или вручную: GitHub → Settings → Secrets and variables → Actions"
+            echo "  SSH_HOST=2.27.123.28  SSH_USER=root  SSH_PRIVATE_KEY=<приватный ключ>"
+            exit 1
+          fi
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -28,9 +53,45 @@ jobs:
           command_timeout: 15m
           script: |
             set -euo pipefail
-            cd /opt/ninavpn-bot
-            if [[ -d .git ]]; then
+            ROOT=/opt/ninavpn-bot
+            mkdir -p "$ROOT"
+            cd "$ROOT"
+
+            if [[ -d .git ]] && command -v git >/dev/null 2>&1; then
               git fetch origin main
               git reset --hard origin/main
+            else
+              echo "→ bootstrap без git (tar с GitHub)"
+              env_bak=$(mktemp)
+              [[ -f .env ]] && cp .env "$env_bak"
+              staging=$(mktemp -d)
+              curl -fsSL https://github.com/tanchik67/ninavpn-bot/archive/refs/heads/main.tar.gz \
+                | tar xzf - -C "$staging" --strip-components=1
+              if command -v rsync >/dev/null 2>&1; then
+                rsync -a --exclude '.env' --exclude 'venv/' --exclude '*.db' --exclude '.git/' \
+                  "$staging/" "$ROOT/"
+              else
+                (cd "$staging" && tar cf - --exclude='.env' --exclude='venv' --exclude='*.db' .) \
+                  | (cd "$ROOT" && tar xf -)
+              fi
+              rm -rf "$staging"
+              [[ -s "$env_bak" ]] && cp "$env_bak" .env && chmod 600 .env
+              rm -f "$env_bak"
             fi
-            bash scripts/tbank-on-server-setup.sh
+
+            if [[ -f venv/bin/activate ]]; then
+              # shellcheck source=/dev/null
+              source venv/bin/activate
+              python scripts/apply_migrations.py || true
+            fi
+
+            SKIP_PIP=0 bash scripts/update-server.sh
+
+            if [[ -f deploy/nginx/ninavpn.store.conf ]] && command -v nginx >/dev/null 2>&1; then
+              cp deploy/nginx/ninavpn.store.conf /etc/nginx/sites-available/ninavpn.store 2>/dev/null || true
+              ln -sf /etc/nginx/sites-available/ninavpn.store /etc/nginx/sites-enabled/ninavpn.store 2>/dev/null || true
+              nginx -t && systemctl reload nginx
+            fi
+
+            systemctl restart ninavpn-bot
+            curl -sf -o /dev/null -w "webhook HTTP %{http_code}\n" http://127.0.0.1:8080/payment/tbank || true
