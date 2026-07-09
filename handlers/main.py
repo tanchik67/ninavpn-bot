@@ -36,6 +36,8 @@ from config import (
     sber_pbpn_configured,
     sber_pay_url,
     tbank_configured,
+    tbank_effective_test_mode,
+    tbank_effective_verify_ssl,
     payment_public_base_url,
     welcome_banner_path,
 )
@@ -854,8 +856,10 @@ async def cb_pay(cb: CallbackQuery):
         from services import tbank as tbank_svc
 
         order_id = tbank_svc.order_id_for_payment(payment_id)
+        test_mode = tbank_effective_test_mode()
+        verify_ssl = tbank_effective_verify_ssl()
         base = tbank_svc.acquiring_base_url(
-            test_mode=bool(settings.TBANK_TEST_MODE),
+            test_mode=test_mode,
             override=(settings.TBANK_API_BASE or None),
         )
         pub = payment_public_base_url()
@@ -876,10 +880,16 @@ async def cb_pay(cb: CallbackQuery):
             notification_url=notification_url,
             success_url=success_url,
             fail_url=fail_url,
-            verify_ssl=bool(settings.TBANK_VERIFY_SSL),
+            verify_ssl=verify_ssl,
         )
         if not resp.get("Success"):
-            log.error("T-Bank Init failed: %s", resp)
+            log.error(
+                "T-Bank Init failed: %s (test_mode=%s verify_ssl=%s base=%s)",
+                resp,
+                test_mode,
+                verify_ssl,
+                base,
+            )
             await cb.answer(
                 "Не удалось создать оплату. Попробуй позже или другой способ.",
                 show_alert=True,

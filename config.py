@@ -413,6 +413,27 @@ def tbank_configured() -> bool:
     return bool(tk and pw)
 
 
+def tbank_is_demo_terminal() -> bool:
+    tk = (settings.TBANK_TERMINAL_KEY or "").strip().upper()
+    return "DEMO" in tk
+
+
+def tbank_effective_test_mode() -> bool:
+    """Тестовый API: TBANK_TEST_MODE=1 или ключ с DEMO (иначе «Терминал не найден»)."""
+    if bool(settings.TBANK_TEST_MODE):
+        return True
+    return tbank_is_demo_terminal()
+
+
+def tbank_effective_verify_ssl() -> bool:
+    """На части VPS (it-garage) TLS к rest-api-test.tinkoff.ru ломается — для теста verify=False."""
+    if not bool(settings.TBANK_VERIFY_SSL):
+        return False
+    if tbank_effective_test_mode():
+        return False
+    return True
+
+
 def payment_public_base_url() -> str:
     return (settings.PAYMENT_PUBLIC_BASE_URL or "").strip().rstrip("/")
 
