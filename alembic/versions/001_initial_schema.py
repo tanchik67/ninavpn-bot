@@ -1,4 +1,4 @@
-"""initial: создать таблицы из SQLAlchemy models (checkfirst).
+"""initial: create tables from SQLAlchemy models (checkfirst)
 
 Revision ID: 001_initial
 Revises:

@@ -34,11 +34,23 @@ def main() -> int:
     print("Миграции применяются к DATABASE_URL из .env (cwd = каталог бота):")
     print(" ", db_url)
 
+    fix_script = ROOT / "scripts" / "fix-alembic-versions.py"
+    if fix_script.is_file():
+        subprocess.call([sys.executable, str(fix_script)], cwd=ROOT)
+
     venv_py = ROOT / "venv" / "bin" / "python"
     exe = str(venv_py) if venv_py.is_file() else sys.executable
     cmd = [exe, "-m", "alembic", "upgrade", "head"]
     print("Running:", " ".join(cmd), "in", ROOT)
-    return subprocess.call(cmd, cwd=ROOT, env=os.environ)
+    rc = subprocess.call(cmd, cwd=ROOT, env=os.environ)
+    if rc == 0:
+        return 0
+
+    print("Alembic failed — пробуем sqlite-migrate-checkout.py", file=sys.stderr)
+    fallback = ROOT / "scripts" / "sqlite-migrate-checkout.py"
+    if fallback.is_file():
+        subprocess.call([exe, str(fallback)], cwd=ROOT)
+    return rc
 
 
 if __name__ == "__main__":

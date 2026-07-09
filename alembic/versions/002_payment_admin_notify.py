@@ -1,4 +1,4 @@
-"""payments: admin_notify_sent для Сбер-оплаты
+"""payments: admin_notify_sent for sber_pbpn
 
 Revision ID: 002_admin_notify
 Revises: 001_initial
