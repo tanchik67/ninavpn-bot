@@ -51,6 +51,16 @@ async def main():
     if resp.get("Success"):
         print("OK: Init прошёл, PaymentURL есть:", bool(resp.get("PaymentURL")))
         return 0
+    if resp.get("http_status") == 403 or resp.get("Message") == "invalid_json":
+        print()
+        print("403 от nginx Т-Банка — IP сервера не в whitelist тестовой среды.")
+        print("Проверьте исходящий IP:  curl -4 -s ifconfig.me")
+        print("Напишите на acq_help@tinkoff.ru:")
+        print("  • ИНН и наименование организации")
+        print("  • IP сервера (исходящий, с которого бот ходит в API)")
+        print("  • URL: rest-api-test.tinkoff.ru")
+        print("  • TerminalKey: DEMO-терминал для тестов")
+        print("После добавления в WL повторите: bash scripts/tbank-init-probe.sh")
     print("FAIL: Init не прошёл — см. Message/Details выше")
     return 1
 
