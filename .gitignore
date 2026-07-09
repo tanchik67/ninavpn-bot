@@ -22,6 +22,9 @@ build/
 .idea/
 .vscode/
 .DS_Store
+._*
+**/._*
+__MACOSX/
 *.swp
 
 # Логи и временные файлы
