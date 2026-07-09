@@ -11,6 +11,7 @@ ROOT="${ROOT:-/opt/ninavpn-bot}"
 GITHUB_REPO="${GITHUB_REPO:-tanchik67/ninavpn-bot}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 GITHUB_TAR="https://github.com/${GITHUB_REPO}/archive/refs/heads/${GITHUB_BRANCH}.tar.gz"
+GITHUB_ORIGIN="https://github.com/${GITHUB_REPO}.git"
 
 echo "=== NINAVPN: remote bootstrap ==="
 
@@ -28,10 +29,25 @@ fi
 mkdir -p "$ROOT"
 cd "$ROOT"
 
-sync_from_github() {
-  local staging
+preserve_env() {
+  local dest="$1"
+  [[ -f .env ]] && cp .env "$dest"
+}
+
+restore_env() {
+  local src="$1"
+  if [[ -s "$src" ]]; then
+    cp "$src" .env
+    chmod 600 .env 2>/dev/null || true
+  fi
+}
+
+sync_from_github_tar() {
+  local staging env_bak
   staging=$(mktemp -d)
-  trap 'rm -rf "$staging"' RETURN
+  env_bak=$(mktemp)
+  preserve_env "$env_bak"
+  trap 'rm -rf "$staging" "$env_bak"' RETURN
 
   echo "→ загрузка кода: $GITHUB_TAR"
   curl -fsSL "$GITHUB_TAR" | tar xzf - -C "$staging" --strip-components=1
@@ -53,26 +69,43 @@ sync_from_github() {
       --exclude='*.db' \
       . ) | (cd "$ROOT" && tar xf -)
   fi
+  restore_env "$env_bak"
   echo "✓ код обновлён из GitHub ( .env и venv не тронуты )"
 }
 
-if [[ -d .git ]]; then
-  echo "→ git fetch origin $GITHUB_BRANCH"
-  git fetch origin "$GITHUB_BRANCH"
-  git reset --hard "origin/${GITHUB_BRANCH}"
+init_git_clean() {
+  local env_bak
+  env_bak=$(mktemp)
+  preserve_env "$env_bak"
+  rm -rf .git
+  git init -q
+  git remote add origin "$GITHUB_ORIGIN" 2>/dev/null || git remote set-url origin "$GITHUB_ORIGIN"
+  git fetch -q origin "$GITHUB_BRANCH"
+  git checkout -qf -B "$GITHUB_BRANCH" "origin/${GITHUB_BRANCH}"
+  restore_env "$env_bak"
+  rm -f "$env_bak"
+  echo "✓ git настроен (origin/${GITHUB_BRANCH})"
+}
+
+if [[ -d .git ]] && command -v git >/dev/null 2>&1; then
+  echo "→ git fetch + reset --hard origin/${GITHUB_BRANCH}"
+  env_bak=$(mktemp)
+  preserve_env "$env_bak"
+  if git fetch origin "$GITHUB_BRANCH" && git reset --hard "origin/${GITHUB_BRANCH}"; then
+    restore_env "$env_bak"
+    echo "✓ код синхронизирован через git"
+  else
+    restore_env "$env_bak"
+    echo "! git reset не удался — синхронизация архивом"
+    sync_from_github_tar
+    init_git_clean
+  fi
+  rm -f "$env_bak"
 else
   echo "! Нет .git — синхронизация архивом с GitHub"
-  sync_from_github
+  sync_from_github_tar
   if command -v git >/dev/null 2>&1; then
-    if [[ ! -d .git ]]; then
-      git init -q
-      git remote add origin "https://github.com/${GITHUB_REPO}.git" 2>/dev/null || \
-        git remote set-url origin "https://github.com/${GITHUB_REPO}.git"
-    fi
-    git fetch -q origin "$GITHUB_BRANCH" || true
-    git checkout -B "$GITHUB_BRANCH" "origin/${GITHUB_BRANCH}" 2>/dev/null || \
-      git branch -M "$GITHUB_BRANCH" 2>/dev/null || true
-    echo "✓ git инициализирован для будущих git pull"
+    init_git_clean
   fi
 fi
 
@@ -81,4 +114,4 @@ if [[ ! -f scripts/tbank-on-server-setup.sh ]]; then
   exit 1
 fi
 
-bash scripts/tbank-on-server-setup.sh
+SKIP_GIT_PULL=1 bash scripts/tbank-on-server-setup.sh

@@ -13,13 +13,33 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 ENV_FILE="${ENV_FILE:-$ROOT/.env}"
 
+# shellcheck source=scripts/env-read.sh
+source "$SCRIPT_DIR/env-read.sh"
+
+git_sync_main() {
+  local env_bak branch="${GIT_BRANCH:-main}"
+  env_bak=$(mktemp)
+  [[ -f .env ]] && cp .env "$env_bak"
+  git fetch origin "$branch"
+  git reset --hard "origin/${branch}"
+  if [[ -s "$env_bak" ]]; then
+    cp "$env_bak" .env
+    chmod 600 .env 2>/dev/null || true
+  fi
+  rm -f "$env_bak"
+}
+
 echo "=== NINAVPN: настройка Т-Банк на сервере ==="
 echo "Каталог: $ROOT"
 echo
 
-if [[ -d .git ]] && command -v git >/dev/null 2>&1; then
-  echo "→ git pull origin main"
-  git pull origin main || echo "! git pull не удался — продолжаем с текущим кодом"
+if [[ "${SKIP_GIT_PULL:-0}" != "1" ]] && [[ -d .git ]] && command -v git >/dev/null 2>&1; then
+  echo "→ git fetch + reset --hard origin/main"
+  if git_sync_main; then
+    echo "✓ код синхронизирован с GitHub"
+  else
+    echo "! git sync не удался — продолжаем с текущим кодом"
+  fi
   echo
 fi
 
@@ -31,11 +51,11 @@ else
     echo "Ошибка: нет $ENV_FILE"
     exit 1
   fi
-  # shellcheck disable=SC1090
-  set -a
-  source <(grep -E '^(TBANK_|PAYMENT_PUBLIC|SBER_PBPN)' "$ENV_FILE" | sed 's/\r$//')
-  set +a
-  if [[ -z "${TBANK_TERMINAL_KEY:-}" || -z "${TBANK_PASSWORD:-}" ]]; then
+  TBANK_TERMINAL_KEY="$(env_get TBANK_TERMINAL_KEY "$ENV_FILE" || true)"
+  TBANK_PASSWORD="$(env_get TBANK_PASSWORD "$ENV_FILE" || true)"
+  TBANK_TEST_MODE="$(env_get TBANK_TEST_MODE "$ENV_FILE" || true)"
+  PAYMENT_PUBLIC_BASE_URL="$(env_get PAYMENT_PUBLIC_BASE_URL "$ENV_FILE" || true)"
+  if [[ -z "$TBANK_TERMINAL_KEY" || -z "$TBANK_PASSWORD" ]]; then
     echo "Ошибка: задайте TBANK_TERMINAL_KEY и TBANK_PASSWORD в .env или в окружении."
     exit 1
   fi

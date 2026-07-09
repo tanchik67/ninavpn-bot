@@ -34,28 +34,28 @@ if [[ ! -f "$ENV_FILE" ]]; then
   warn "Файл .env не найден: $ENV_FILE"
   warn "Скопируйте deploy/env/server.env.template → /opt/ninavpn-bot/.env"
 else
-  # shellcheck disable=SC1090
-  set -a
-  source <(grep -E '^(TBANK_|PAYMENT_PUBLIC|SBER_PBPN)' "$ENV_FILE" | sed 's/\r$//')
-  set +a
+  # shellcheck source=scripts/env-read.sh
+  source "$SCRIPT_DIR/env-read.sh"
 
-  pub="${PAYMENT_PUBLIC_BASE_URL:-}"
+  pub="$(env_get PAYMENT_PUBLIC_BASE_URL "$ENV_FILE" || true)"
   if [[ -n "$pub" ]]; then
     ok "PAYMENT_PUBLIC_BASE_URL=$pub"
   else
     fail "PAYMENT_PUBLIC_BASE_URL не задан — Init не передаст NotificationURL"
   fi
 
-  tk="${TBANK_TERMINAL_KEY:-}"
-  pw="${TBANK_PASSWORD:-}"
+  tk="$(env_get TBANK_TERMINAL_KEY "$ENV_FILE" || true)"
+  pw="$(env_get TBANK_PASSWORD "$ENV_FILE" || true)"
   if [[ -n "$tk" && -n "$pw" ]]; then
     ok "TBANK_TERMINAL_KEY и TBANK_PASSWORD заданы"
-    if [[ "${TBANK_TEST_MODE:-0}" == "1" ]]; then
+    tmode="$(env_get TBANK_TEST_MODE "$ENV_FILE" || true)"
+    if [[ "${tmode:-0}" == "1" ]]; then
       warn "TBANK_TEST_MODE=1 (тестовый API)"
     else
       ok "TBANK_TEST_MODE=0 (боевой API)"
     fi
-    if [[ "${TBANK_VERIFY_SSL:-true}" == "false" || "${TBANK_VERIFY_SSL:-true}" == "0" ]]; then
+    vssl="$(env_get TBANK_VERIFY_SSL "$ENV_FILE" || true)"
+    if [[ "${vssl:-true}" == "false" || "${vssl:-true}" == "0" ]]; then
       warn "TBANK_VERIFY_SSL=false (без проверки TLS к API — для теста на it-garage)"
     else
       ok "TBANK_VERIFY_SSL=true"
@@ -64,7 +64,8 @@ else
     fail "Задайте TBANK_TERMINAL_KEY и TBANK_PASSWORD в .env"
   fi
 
-  if [[ -n "${SBER_PBPN_URL:-}" ]]; then
+  sber="$(env_get SBER_PBPN_URL "$ENV_FILE" || true)"
+  if [[ -n "$sber" ]]; then
     warn "SBER_PBPN_URL задан — в боте будет ручной «Перевод». Для только эквайринга оставьте пустым."
   else
     ok "SBER_PBPN_URL пуст — ручной перевод скрыт"

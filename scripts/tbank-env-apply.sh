@@ -23,12 +23,16 @@ chmod 600 "$ENV_FILE" 2>/dev/null || true
 set_kv() {
   local key="$1"
   local val="$2"
-  if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
-    # shellcheck disable=SC2016
-    sed -i.bak "s|^${key}=.*|${key}=${val}|" "$ENV_FILE"
+  local tmp
+  tmp=$(mktemp)
+  if [[ -f "$ENV_FILE" ]]; then
+    grep -v "^${key}=" "$ENV_FILE" > "$tmp" || true
   else
-    echo "${key}=${val}" >> "$ENV_FILE"
+    : > "$tmp"
   fi
+  printf '%s=%s\n' "$key" "$val" >> "$tmp"
+  mv "$tmp" "$ENV_FILE"
+  chmod 600 "$ENV_FILE" 2>/dev/null || true
 }
 
 set_kv "TBANK_TERMINAL_KEY" "$TBANK_TERMINAL_KEY"
@@ -57,8 +61,6 @@ set_kv "TBANK_VERIFY_SSL" "$verify_ssl"
 set_kv "PAYMENT_PUBLIC_BASE_URL" "${PAYMENT_PUBLIC_BASE_URL:-https://ninavpn.store}"
 set_kv "SBER_PBPN_URL" ""
 set_kv "SBER_PBPN_APPEND_AMOUNT" "0"
-
-rm -f "${ENV_FILE}.bak"
 
 echo "Обновлено: $ENV_FILE"
 echo "Перезапуск: sudo systemctl restart ninavpn-bot"
