@@ -171,6 +171,14 @@
   .modal-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; }
   .modal-tg-btn { display: inline-flex; align-items: center; gap: 10px; background: #229ED9; padding: 16px 24px; border-radius: 14px; color: white; text-decoration: none; font-weight: 600; margin: 16px 0; width: 100%; justify-content: center; }
   .modal-plan-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; text-decoration: none; color: var(--text); margin-bottom: 8px; background: rgba(255,255,255,0.02); }
+  .checkout-email { width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 1rem; margin: 12px 0; }
+  .checkout-email:focus { outline: none; border-color: var(--accent); }
+  .checkout-summary { background: rgba(123,47,255,0.08); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin: 12px 0; text-align: left; }
+  .checkout-err { color: #ff6b8a; font-size: 0.85rem; min-height: 1.2em; margin-top: 8px; }
+  .checkout-pay-btn { width: 100%; padding: 16px; border: none; border-radius: 14px; font-weight: 600; font-size: 1rem; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; margin-top: 8px; }
+  .checkout-pay-btn:disabled { opacity: 0.6; cursor: wait; }
+  .checkout-note { font-size: 0.75rem; color: var(--muted); margin-top: 12px; line-height: 1.5; }
 
   @media (max-width: 768px) { nav { padding: 16px 20px; } nav ul { display: none; } section, .constructor-wrap, .payment-section { padding: 60px 20px; } .hero { padding-top: 100px; } footer { flex-direction: column; text-align: center; padding: 32px 20px; } }
 </style>
@@ -183,23 +191,21 @@
 <div class="modal-overlay" id="modal">
   <div class="modal" style="position: relative;">
     <button class="modal-close" onclick="closeModal()">✕</button>
-    <h3 style="font-family:'Unbounded'; margin-bottom:8px;">Подключиться к NINAVPN</h3>
-    <p>Напиши нам в Telegram — выберем тариф и подключим за 5 минут</p>
-    <a href="https://t.me/ninavpn_bot" target="_blank" class="modal-tg-btn">📱 Написать в Telegram</a>
-    <div style="margin: 16px 0;">
-      <div style="font-size:0.7rem; color:var(--muted); margin-bottom:8px;">🔥 Популярные тарифы</div>
-      <a href="https://t.me/ninavpn_bot?start=plan_1m_1d" class="modal-plan-link">⚡ 1 месяц — 100 ₽ · 1 устройство</a>
-      <a href="https://t.me/ninavpn_bot?start=plan_6m_3d" class="modal-plan-link" style="border-color:var(--accent);">🔥 6 месяцев — 500 ₽ · 3 устройства</a>
-      <a href="https://t.me/ninavpn_bot?start=plan_12m_5d" class="modal-plan-link">💎 12 месяцев — 1000 ₽ · 5 устройств</a>
-    </div>
-    <p style="font-size:0.75rem;">🔒 Без логов · Возврат 24 часа · Работает в РФ</p>
+    <h3 style="font-family:'Unbounded'; margin-bottom:8px;">Оплата NINAVPN</h3>
+    <p id="checkoutPlanLine" style="color:var(--muted); font-size:0.9rem;">Выберите тариф на странице</p>
+    <div class="checkout-summary" id="checkoutSummary"></div>
+    <label for="checkoutEmail" style="font-size:0.8rem; color:var(--muted);">Email для чека и восстановления доступа</label>
+    <input type="email" id="checkoutEmail" class="checkout-email" placeholder="you@example.com" autocomplete="email">
+    <button type="button" class="checkout-pay-btn" id="checkoutPayBtn">💳 Оплатить картой / СБП (Т-Банк)</button>
+    <div class="checkout-err" id="checkoutErr"></div>
+    <p class="checkout-note">После оплаты вы попадёте на страницу с VPN-ссылкой. Бот Telegram не нужен.<br>🔒 Без логов · Возврат 24 часа</p>
   </div>
 </div>
 
 <nav>
   <div class="logo">NINA<span>VPN</span></div>
   <ul><li><a href="#features">Фичи</a></li><li><a href="#pricing">Цены</a></li><li><a href="#constructor">Конструктор</a></li><li><a href="#faq">FAQ</a></li></ul>
-  <button class="nav-btn" onclick="openModal()">Попробовать →</button>
+  <button class="nav-btn" onclick="openCheckout({plan_key:'6m_3d'})">Оплатить →</button>
 </nav>
 
 <div class="hero">
@@ -208,7 +214,7 @@
   <h1><span class="line1">Интернет без</span><br><span class="line2">цензуры</span></h1>
   <p>VPN на базе v2ray/XTLS — самый устойчивый к блокировкам протокол. Instagram, YouTube, Discord, TikTok — всё летит без тормозов.</p>
   <div class="hero-btns" style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-    <button class="btn-primary" onclick="openModal()">Попробовать — от 100 ₽/мес</button>
+    <button class="btn-primary" onclick="openCheckout({plan_key:'1m_1d'})">Оплатить — от 100 ₽/мес</button>
     <button class="btn-ghost" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">Как это работает</button>
   </div>
   <br>
@@ -235,8 +241,8 @@
   <div class="section-tag reveal" style="justify-content:center">Простое подключение</div>
   <h2 class="reveal">Работает быстро</h2>
   <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:32px; margin-top:48px;">
-    <div><div style="font-size:3rem;">💳</div><h3>Оплати</h3><p>СБП, карта РФ, USDT</p></div>
-    <div><div style="font-size:3rem;">✈️</div><h3>Получи конфиг</h3><p>В Telegram мгновенно</p></div>
+    <div><div style="font-size:3rem;">💳</div><h3>Оплати на сайте</h3><p>СБП или карта РФ через Т-Банк</p></div>
+    <div><div style="font-size:3rem;">🔗</div><h3>Получи ссылку VPN</h3><p>Сразу после оплаты на сайте</p></div>
     <div><div style="font-size:3rem;">🚀</div><h3>Включи</h3><p>v2rayNG, Streisand и др.</p></div>
     <div><div style="font-size:3rem;">🎉</div><h3>Всё работает</h3><p>Instagram, TikTok, YouTube</p></div>
   </div>
@@ -246,9 +252,9 @@
   <div class="section-tag reveal" style="justify-content:center">Честные цены</div>
   <h2 class="reveal">Выбери свой план</h2>
   <div class="pricing-grid">
-    <div class="price-card reveal"><div class="price-period">Месяц</div><div class="price-amount">100 ₽</div><ul class="price-features"><li>1 устройство</li><li>Все серверы</li><li>Безлимит</li></ul><button class="btn-plan btn-plan-primary" onclick="openModalPlan('month')">Выбрать</button></div>
-    <div class="price-card popular reveal"><div class="popular-badge">🔥 Хит</div><div class="price-amount">500 ₽</div><div style="font-size:0.8rem;">6 месяцев</div><ul class="price-features"><li>3 устройства</li><li>Приоритетная поддержка</li><li>Экономия 100 ₽</li></ul><button class="btn-plan btn-plan-primary" onclick="openModalPlan('half')">Выбрать →</button></div>
-    <div class="price-card reveal"><div class="price-amount">1000 ₽</div><div>12 месяцев</div><ul class="price-features"><li>5 устройств</li><li>Реферальная программа</li><li>Экономия 200 ₽</li></ul><button class="btn-plan btn-plan-primary" onclick="openModalPlan('year')">Выбрать</button></div>
+    <div class="price-card reveal"><div class="price-period">Месяц</div><div class="price-amount">100 ₽</div><ul class="price-features"><li>1 устройство</li><li>Все серверы</li><li>Безлимит</li></ul><button class="btn-plan btn-plan-primary" onclick="openCheckout({plan_key:'1m_1d'})">Оплатить</button></div>
+    <div class="price-card popular reveal"><div class="popular-badge">🔥 Хит</div><div class="price-amount">500 ₽</div><div style="font-size:0.8rem;">6 месяцев</div><ul class="price-features"><li>3 устройства</li><li>Приоритетная поддержка</li><li>Экономия 100 ₽</li></ul><button class="btn-plan btn-plan-primary" onclick="openCheckout({plan_key:'6m_3d'})">Оплатить →</button></div>
+    <div class="price-card reveal"><div class="price-amount">1000 ₽</div><div>12 месяцев</div><ul class="price-features"><li>5 устройств</li><li>Реферальная программа</li><li>Экономия 200 ₽</li></ul><button class="btn-plan btn-plan-primary" onclick="openCheckout({plan_key:'12m_5d'})">Оплатить</button></div>
   </div>
 </section>
 
@@ -287,7 +293,7 @@
 <div class="cta-section">
   <h2 class="reveal">Разблокируй всё прямо сейчас</h2>
   <p class="reveal">От 100 рублей в месяц. Меньше чем чашка кофе.</p>
-  <button class="btn-primary reveal" onclick="openModal()" style="font-size:1.1rem; margin-top:24px;">Подключиться →</button>
+  <button class="btn-primary reveal" onclick="openCheckout({plan_key:'6m_3d'})" style="font-size:1.1rem; margin-top:24px;">Оплатить подписку →</button>
 </div>
 
 <footer>
@@ -321,11 +327,82 @@
     if (!isOpen) item.classList.add('open');
   };
 
-  // Modal
-  window.openModal = () => { document.getElementById('modal').classList.add('active'); document.body.style.overflow = 'hidden'; };
-  window.closeModal = () => { document.getElementById('modal').classList.remove('active'); document.body.style.overflow = ''; };
-  window.openModalPlan = (plan) => { openModal(); };
+  // Checkout modal (Т-Банк на сайте)
+  const PLAN_LABELS = {
+    '1m_1d': '1 месяц · 1 устройство · 100 ₽',
+    '6m_3d': '6 месяцев · 3 устройства · 500 ₽',
+    '12m_5d': '12 месяцев · 5 устройств · 1000 ₽',
+  };
+  let checkoutPayload = { plan_key: '6m_3d' };
+
+  function formatCheckoutSummary(payload) {
+    if (payload.plan_key && PLAN_LABELS[payload.plan_key]) {
+      return PLAN_LABELS[payload.plan_key];
+    }
+    if (payload.months && payload.devices) {
+      const total = calculatePrice(payload.months, payload.devices);
+      return `${payload.months} мес · ${payload.devices} уст. · ${total.toLocaleString('ru')} ₽`;
+    }
+    return 'Тариф';
+  }
+
+  window.openCheckout = function(payload) {
+    checkoutPayload = payload || { plan_key: '6m_3d' };
+    const line = document.getElementById('checkoutPlanLine');
+    const summary = document.getElementById('checkoutSummary');
+    const err = document.getElementById('checkoutErr');
+    if (line) line.textContent = 'Оплата картой или СБП через Т-Банк';
+    if (summary) summary.textContent = formatCheckoutSummary(checkoutPayload);
+    if (err) err.textContent = '';
+    document.getElementById('modal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('checkoutEmail')?.focus();
+  };
+
+  window.closeModal = () => {
+    document.getElementById('modal').classList.remove('active');
+    document.body.style.overflow = '';
+    const btn = document.getElementById('checkoutPayBtn');
+    if (btn) { btn.disabled = false; btn.textContent = '💳 Оплатить картой / СБП (Т-Банк)'; }
+  };
+
+  window.openModal = () => openCheckout({ plan_key: '6m_3d' });
+  window.openModalPlan = () => openCheckout({ plan_key: '6m_3d' });
   document.getElementById('modal')?.addEventListener('click', (e) => { if(e.target === document.getElementById('modal')) closeModal(); });
+
+  async function startCheckout() {
+    const email = (document.getElementById('checkoutEmail')?.value || '').trim();
+    const errEl = document.getElementById('checkoutErr');
+    const btn = document.getElementById('checkoutPayBtn');
+    if (!email || !email.includes('@')) {
+      if (errEl) errEl.textContent = 'Укажите корректный email';
+      return;
+    }
+    const body = { email, ...checkoutPayload };
+    if (btn) { btn.disabled = true; btn.textContent = 'Переход к оплате…'; }
+    if (errEl) errEl.textContent = '';
+    try {
+      const r = await fetch('/api/checkout/tbank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (data.success && data.payment_url) {
+        window.location.href = data.payment_url;
+        return;
+      }
+      if (errEl) errEl.textContent = data.message || 'Не удалось создать оплату';
+      if (btn) { btn.disabled = false; btn.textContent = '💳 Оплатить картой / СБП (Т-Банк)'; }
+    } catch (e) {
+      if (errEl) errEl.textContent = 'Ошибка сети. Попробуйте ещё раз.';
+      if (btn) { btn.disabled = false; btn.textContent = '💳 Оплатить картой / СБП (Т-Банк)'; }
+    }
+  }
+  document.getElementById('checkoutPayBtn')?.addEventListener('click', startCheckout);
+  document.getElementById('checkoutEmail')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') startCheckout();
+  });
 
   // ---------- CONSTRUCTOR LOGIC ----------
   const basePrices = { 1: 100, 6: 500, 12: 1000 };
@@ -413,9 +490,7 @@
   setActiveMonth(6);
 
   window.buyConstructor = function() {
-    const total = calculatePrice(selectedMonths, devices);
-    const url = `https://t.me/ninavpn_bot?start=custom_${selectedMonths}m_${devices}d`;
-    window.open(url, '_blank');
+    openCheckout({ months: selectedMonths, devices });
   };
   document.getElementById('constructorBuyBtn')?.addEventListener('click', buyConstructor);
 </script>

@@ -77,6 +77,8 @@ class Payment(Base):
     confirmed_at  = Column(DateTime, nullable=True)
     promo_id      = Column(Integer, ForeignKey("promo_codes.id"), nullable=True)
     admin_notify_sent = Column(Boolean, default=False)  # уведомление админам о переводе sber_pbpn (анти-спам)
+    checkout_token  = Column(String(64), nullable=True, unique=True, index=True)
+    checkout_email  = Column(String(254), nullable=True)
 
     user          = relationship("User", back_populates="payments")
     promo         = relationship("PromoCode", foreign_keys=[promo_id])

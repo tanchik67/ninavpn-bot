@@ -40,6 +40,7 @@ from config import (
     tbank_effective_verify_ssl,
     payment_public_base_url,
     welcome_banner_path,
+    is_site_user,
 )
 from database import (
     User,
@@ -404,13 +405,14 @@ async def issue_config(bot: Bot, tg_id: int, plan_key: str,
             )
     except Exception as e:
         log.exception("VPN panel create_or_extend error")
-        await bot.send_message(
-            tg_id,
-            "❌ Ошибка создания конфига. Укажите в обращении номер заказа: "
-            f"<code>{payment_id}</code>.\n"
-            "Напишите в поддержку: «Поддержка» → «Написать в поддержку».",
-            parse_mode="HTML",
-        )
+        if not is_site_user(tg_id):
+            await bot.send_message(
+                tg_id,
+                "❌ Ошибка создания конфига. Укажите в обращении номер заказа: "
+                f"<code>{payment_id}</code>.\n"
+                "Напишите в поддержку: «Поддержка» → «Написать в поддержку».",
+                parse_mode="HTML",
+            )
         err_short = html_escape(str(e)[:800])
         alert = (
             f"🚨 <b>Ошибка VPN-панели</b>\n"
@@ -463,36 +465,45 @@ async def issue_config(bot: Bot, tg_id: int, plan_key: str,
         await s.commit()
 
     expires_str = expires.strftime("%d.%m.%Y")
-    await send_config_ready_bundle(
-        bot,
-        tg_id,
-        link or "—",
-        expires_str,
-        devices,
-        extra_link=link_extra,
-        partial_nodes=partial_nodes,
-        reply_markup=kb_after_config(),
-    )
+    site_checkout = is_site_user(tg_id)
 
-    for i, url in enumerate(links):
-        if not url:
-            continue
-        try:
-            qr_b64 = panel.make_qr_base64(url)
-            qr_bytes = base64.b64decode(qr_b64)
-            v = url.startswith("vless://")
-            cap = (
-                ("📱 QR — VLESS (основной)" if v else "📱 QR — основной")
-                if i == 0
-                else ("📱 QR — VLESS (запасной)" if v else "📱 QR — запасной")
-            )
-            await bot.send_photo(
-                tg_id,
-                BufferedInputFile(qr_bytes, filename=f"ninavpn_config_{i}.png"),
-                caption=cap,
-            )
-        except Exception as e:
-            log.warning(f"QR error: {e}")
+    if not site_checkout:
+        await send_config_ready_bundle(
+            bot,
+            tg_id,
+            link or "—",
+            expires_str,
+            devices,
+            extra_link=link_extra,
+            partial_nodes=partial_nodes,
+            reply_markup=kb_after_config(),
+        )
+
+        for i, url in enumerate(links):
+            if not url:
+                continue
+            try:
+                qr_b64 = panel.make_qr_base64(url)
+                qr_bytes = base64.b64decode(qr_b64)
+                v = url.startswith("vless://")
+                cap = (
+                    ("📱 QR — VLESS (основной)" if v else "📱 QR — основной")
+                    if i == 0
+                    else ("📱 QR — VLESS (запасной)" if v else "📱 QR — запасной")
+                )
+                await bot.send_photo(
+                    tg_id,
+                    BufferedInputFile(qr_bytes, filename=f"ninavpn_config_{i}.png"),
+                    caption=cap,
+                )
+            except Exception as e:
+                log.warning(f"QR error: {e}")
+    else:
+        log.info(
+            "issue_config: site checkout user tg_id=%s payment_id=%s — конфиг на странице success",
+            tg_id,
+            payment_id,
+        )
 
     pay_method_key = ""
     async with AsyncSessionLocal() as s:

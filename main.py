@@ -3,6 +3,7 @@ NINAVPN Bot — точка входа
 Запуск: python main.py
 """
 import asyncio
+import json
 import logging
 import time
 from html import escape as html_escape
@@ -16,7 +17,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.types import BotCommand, BotCommandScopeDefault
-from config import settings, bot_username_clean, bot_telegram_https_url
+from config import settings, bot_username_clean, bot_telegram_https_url, payment_public_base_url
 from database import init_db
 from handlers.ban_middleware import BanMiddleware
 from handlers.channel_subscription_middleware import ChannelSubscriptionMiddleware
@@ -52,7 +53,7 @@ def _request_client_ip(request: web.Request) -> str:
 @web.middleware
 async def security_middleware(request: web.Request, handler):
     path = request.path
-    if path.startswith("/miniapp/api/"):
+    if path.startswith("/miniapp/api/") or path.startswith("/api/checkout/"):
         lim = int(getattr(settings, "MINIAPP_API_RATE_LIMIT_PER_MIN", 0) or 0)
         if lim > 0:
             ip = _request_client_ip(request)
@@ -145,8 +146,9 @@ async def tbank_notify(request: web.Request) -> web.Response:
 
 
 async def payment_success(request: web.Request) -> web.Response:
-    """GET /payment/success — редирект после успешной оплаты."""
-    bot_href = html_escape(bot_telegram_https_url())
+    """GET /payment/success — после оплаты с сайта (конфиг по checkout token)."""
+    token = (request.rel_url.query.get("t") or "").strip()
+    site_href = html_escape(payment_public_base_url() or "https://ninavpn.store")
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -154,27 +156,120 @@ async def payment_success(request: web.Request) -> web.Response:
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:#0a0a0f;color:#F0EEFF;font-family:'Segoe UI',sans-serif;
-  display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}}
-.box{{max-width:420px;padding:48px 32px}}
-.icon{{font-size:4rem;margin-bottom:20px}}
-h1{{font-size:1.6rem;font-weight:700;margin-bottom:12px}}
-p{{color:#6b6b90;font-size:0.95rem;line-height:1.6;margin-bottom:28px}}
-a{{display:inline-block;background:linear-gradient(135deg,#7B2FFF,#FF2FA0);
-  color:#fff;padding:14px 32px;border-radius:100px;text-decoration:none;font-weight:600}}
+  display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}}
+.box{{max-width:520px;width:100%;padding:40px 28px;text-align:center}}
+.icon{{font-size:3.5rem;margin-bottom:16px}}
+h1{{font-size:1.5rem;font-weight:700;margin-bottom:12px}}
+p,li{{color:#6b6b90;font-size:0.95rem;line-height:1.6}}
+.muted{{margin:12px 0 20px}}
+.link-box{{background:#111120;border:1px solid rgba(123,47,255,0.25);border-radius:14px;
+  padding:14px;margin:16px 0;text-align:left;word-break:break-all;font-size:0.85rem;color:#c8c6e8}}
+.btn{{display:inline-block;background:linear-gradient(135deg,#7B2FFF,#FF2FA0);
+  color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:600;margin:6px}}
+.btn-ghost{{background:transparent;border:1.5px solid rgba(123,47,255,0.35)}}
+.spinner{{width:36px;height:36px;border:3px solid rgba(123,47,255,0.2);
+  border-top-color:#7B2FFF;border-radius:50%;animation:spin 0.8s linear infinite;margin:20px auto}}
+@keyframes spin{{to{{transform:rotate(360deg)}}}}
+.hidden{{display:none}}
+ol{{text-align:left;padding-left:20px;margin-top:12px}}
 </style></head>
 <body><div class="box">
-<div class="icon">✅</div>
-<h1>Оплата прошла!</h1>
-<p>Конфиг VPN уже отправлен тебе в Telegram.<br>
-Если сообщение не пришло — напиши в поддержку.</p>
-<a href="{bot_href}">Открыть бота</a>
-</div></body></html>"""
+<div id="state-wait">
+  <div class="spinner"></div>
+  <h1>Оплата принята</h1>
+  <p class="muted">Создаём VPN-доступ… обычно это занимает до минуты.</p>
+</div>
+<div id="state-ready" class="hidden">
+  <div class="icon">✅</div>
+  <h1>Готово!</h1>
+  <p class="muted">Скопируй ссылку подписки и вставь в приложение v2rayNG / Streisand / Hiddify.</p>
+  <div class="link-box" id="mainLink"></div>
+  <div class="link-box hidden" id="extraLink"></div>
+  <p class="muted" id="expiresLine"></p>
+  <a class="btn" href="#" id="copyBtn">Скопировать ссылку</a>
+  <a class="btn btn-ghost" href="{site_href}">На главную</a>
+  <ol>
+    <li>Установи v2rayNG (Android) или Streisand (iOS)</li>
+    <li>Импортируй ссылку подписки</li>
+    <li>Включи VPN</li>
+  </ol>
+</div>
+<div id="state-pending" class="hidden">
+  <div class="icon">⏳</div>
+  <h1>Ожидаем подтверждение</h1>
+  <p class="muted">Если оплата прошла, страница обновится автоматически.</p>
+</div>
+<div id="state-error" class="hidden">
+  <div class="icon">⚠️</div>
+  <h1>Не удалось получить конфиг</h1>
+  <p class="muted" id="errText">Напишите в поддержку с номером заказа.</p>
+  <a class="btn" href="{site_href}">На главную</a>
+</div>
+</div>
+<script>
+const token = {json.dumps(token)};
+const mainEl = document.getElementById('mainLink');
+const extraEl = document.getElementById('extraLink');
+const copyBtn = document.getElementById('copyBtn');
+let configUrl = '';
+
+function show(id) {{
+  ['state-wait','state-ready','state-pending','state-error'].forEach(s => {{
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  }});
+}}
+
+async function poll() {{
+  if (!token) {{
+    document.getElementById('errText').textContent = 'Нет кода заказа. Вернитесь на сайт и оформите снова.';
+    show('state-error');
+    return;
+  }}
+  try {{
+    const r = await fetch('/api/checkout/status?t=' + encodeURIComponent(token));
+    const data = await r.json();
+    if (!data.ok) {{
+      document.getElementById('errText').textContent = 'Заказ не найден.';
+      show('state-error');
+      return;
+    }}
+    if (data.status === 'confirmed' && data.config_link) {{
+      configUrl = data.config_link;
+      mainEl.textContent = data.config_link;
+      if (data.config_link_extra) {{
+        extraEl.textContent = data.config_link_extra;
+        extraEl.classList.remove('hidden');
+      }}
+      if (data.expires_at) {{
+        document.getElementById('expiresLine').textContent = 'Действует до ' + data.expires_at;
+      }}
+      show('state-ready');
+      return;
+    }}
+    if (data.status === 'failed') {{
+      document.getElementById('errText').textContent = 'Оплата не завершена. Заказ #' + data.payment_id;
+      show('state-error');
+      return;
+    }}
+    show(data.status === 'pending' ? 'state-pending' : 'state-wait');
+    setTimeout(poll, 2500);
+  }} catch (e) {{
+    setTimeout(poll, 3000);
+  }}
+}}
+copyBtn?.addEventListener('click', (e) => {{
+  e.preventDefault();
+  if (!configUrl) return;
+  navigator.clipboard.writeText(configUrl).then(() => {{ copyBtn.textContent = 'Скопировано ✓'; }});
+}});
+poll();
+</script></body></html>"""
     return web.Response(text=html, content_type="text/html")
 
 
 async def payment_fail(request: web.Request) -> web.Response:
-    """GET /payment/fail — редирект при отказе от оплаты."""
-    bot_href = html_escape(bot_telegram_https_url())
+    """GET /payment/fail — отмена оплаты на стороне Т-Банка."""
+    site_href = html_escape(payment_public_base_url() or "https://ninavpn.store")
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -193,11 +288,56 @@ a{{display:inline-block;background:linear-gradient(135deg,#7B2FFF,#FF2FA0);
 <body><div class="box">
 <div class="icon">❌</div>
 <h1>Оплата отменена</h1>
-<p>Не страшно — можешь попробовать снова.<br>
-Деньги не списаны.</p>
-<a href="{bot_href}">Вернуться в бота</a>
+<p>Деньги не списаны.<br>Можно попробовать снова на сайте.</p>
+<a href="{site_href}#pricing">Вернуться к тарифам</a>
 </div></body></html>"""
     return web.Response(text=html, content_type="text/html")
+
+
+async def api_checkout_tbank(request: web.Request) -> web.Response:
+    """POST /api/checkout/tbank — создать оплату Т-Банка с сайта (JSON)."""
+    if request.method != "POST":
+        return web.json_response({"error": "method_not_allowed"}, status=405)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"success": False, "error": "invalid_json"}, status=400)
+    if not isinstance(body, dict):
+        return web.json_response({"success": False, "error": "invalid_json"}, status=400)
+
+    from services.checkout import create_site_tbank_checkout
+
+    email = str(body.get("email") or "")
+    plan_key = body.get("plan_key")
+    months = body.get("months")
+    devices = body.get("devices")
+    try:
+        months_i = int(months) if months is not None else None
+    except (TypeError, ValueError):
+        months_i = None
+    try:
+        devices_i = int(devices) if devices is not None else None
+    except (TypeError, ValueError):
+        devices_i = None
+
+    result = await create_site_tbank_checkout(
+        email=email,
+        plan_key=str(plan_key).strip() if plan_key else None,
+        months=months_i,
+        devices=devices_i,
+    )
+    status = 200 if result.get("success") else 400
+    return web.json_response(result, status=status)
+
+
+async def api_checkout_status(request: web.Request) -> web.Response:
+    """GET /api/checkout/status?t=... — статус заказа и ссылка подписки."""
+    token = (request.rel_url.query.get("t") or request.rel_url.query.get("token") or "").strip()
+    from services.checkout import get_checkout_status
+
+    data = await get_checkout_status(token)
+    status = 200 if data.get("ok") else 404
+    return web.json_response(data, status=status)
 
 
 async def miniapp_api_plans(request: web.Request) -> web.Response:
@@ -300,6 +440,9 @@ async def start_webhook_server(bot: Bot):
     app.router.add_get("/payment/success",   payment_success)
     app.router.add_get("/payment/fail",      payment_fail)
 
+    app.router.add_post("/api/checkout/tbank", api_checkout_tbank)
+    app.router.add_get("/api/checkout/status", api_checkout_status)
+
     app.router.add_get("/miniapp/api/plans", miniapp_api_plans)
     app.router.add_get("/miniapp/api/config", miniapp_api_config)
     app.router.add_get("/miniapp", miniapp_index)
@@ -315,7 +458,7 @@ async def start_webhook_server(bot: Bot):
     site = web.TCPSite(runner, "127.0.0.1", 8080)
     await site.start()
     log.info(
-        "HTTP-сервер на http://127.0.0.1:8080 — payment/*, miniapp/*"
+        "HTTP-сервер на http://127.0.0.1:8080 — payment/*, api/checkout/*, miniapp/*"
         + (" и /geo/*.dat" if settings.V2RAY_GEO_ENABLED else "")
         + " (проксируйте /payment/, /miniapp/"
         + (", /geo/" if settings.V2RAY_GEO_ENABLED else "")

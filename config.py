@@ -231,6 +231,8 @@ class Settings(BaseSettings):
     TBANK_API_BASE: Optional[str] = None
     # false — если VPS отдаёт self-signed в цепочке TLS к API Т-Банка (редко на проде)
     TBANK_VERIFY_SSL: bool = True
+    # Оплата картой/СБП только с сайта (Т-Банк Init с ninavpn.store, не из бота)
+    TBANK_SITE_CHECKOUT_ONLY: bool = True
     # Публичный https://ваш-домен (без слэша) — SuccessURL, FailURL, NotificationURL в Init
     PAYMENT_PUBLIC_BASE_URL: Optional[str] = None
     # Опционально: публичный базовый URL для ссылок в помощи (geo и т.д.). Если пусто — как PAYMENT_PUBLIC_BASE_URL
@@ -438,6 +440,14 @@ def payment_public_base_url() -> str:
     return (settings.PAYMENT_PUBLIC_BASE_URL or "").strip().rstrip("/")
 
 
+# Синтетические tg_id для покупателей с сайта (без Telegram-аккаунта)
+SITE_USER_TG_ID_BASE = 9_000_000_000_000
+
+
+def is_site_user(tg_id: int) -> bool:
+    return int(tg_id) >= SITE_USER_TG_ID_BASE
+
+
 def public_web_base_url() -> str:
     """Публичный https://домен без хвостового слэша — для ссылок на /geo/ и подобного."""
     p = (settings.PUBLIC_WEB_BASE_URL or "").strip().rstrip("/")
@@ -524,7 +534,7 @@ def payment_method_entries() -> list[tuple[str, dict]]:
         items.append((k, PAYMENT_METHODS[k]))
     if sber_pbpn_configured():
         items.append(("sber_pbpn", PAYMENT_METHODS["sber_pbpn"]))
-    if tbank_configured():
+    if tbank_configured() and not bool(settings.TBANK_SITE_CHECKOUT_ONLY):
         items.append(("tbank", PAYMENT_METHODS["tbank"]))
     return items
 
