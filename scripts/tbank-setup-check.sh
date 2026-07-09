@@ -55,6 +55,11 @@ else
     else
       ok "TBANK_TEST_MODE=0 (боевой API)"
     fi
+    if [[ "${TBANK_VERIFY_SSL:-true}" == "false" || "${TBANK_VERIFY_SSL:-true}" == "0" ]]; then
+      warn "TBANK_VERIFY_SSL=false (без проверки TLS к API — для теста на it-garage)"
+    else
+      ok "TBANK_VERIFY_SSL=true"
+    fi
   else
     fail "Задайте TBANK_TERMINAL_KEY и TBANK_PASSWORD в .env"
   fi
@@ -90,14 +95,22 @@ check_http "/payment/fail"
 check_http "/healthz"
 
 echo
-echo "Webhook Т-Банка (POST только от Т-Банка, GET может вернуть 405):"
-code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 -X POST \
+echo "Webhook Т-Банка (GET — проверка URL, POST — уведомления оплаты):"
+code_get=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "${BASE}/payment/tbank" 2>/dev/null || echo "000")
+if [[ "$code_get" == "200" ]]; then
+  ok "${BASE}/payment/tbank GET → HTTP $code_get (endpoint доступен)"
+else
+  fail "${BASE}/payment/tbank GET → HTTP $code_get"
+fi
+code_post=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 -X POST \
   -H "Content-Type: application/json" \
   -d '{}' "${BASE}/payment/tbank" 2>/dev/null || echo "000")
-if [[ "$code" == "403" || "$code" == "400" || "$code" == "200" ]]; then
-  ok "${BASE}/payment/tbank → HTTP $code (маршрут доступен)"
+if [[ "$code_post" == "403" || "$code_post" == "400" || "$code_post" == "503" ]]; then
+  ok "${BASE}/payment/tbank POST → HTTP $code_post (маршрут принимает POST)"
+elif [[ "$code_post" == "200" ]]; then
+  ok "${BASE}/payment/tbank POST → HTTP $code_post"
 else
-  fail "${BASE}/payment/tbank → HTTP $code"
+  fail "${BASE}/payment/tbank POST → HTTP $code_post"
 fi
 
 echo

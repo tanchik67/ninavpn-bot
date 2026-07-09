@@ -33,7 +33,27 @@ set_kv() {
 
 set_kv "TBANK_TERMINAL_KEY" "$TBANK_TERMINAL_KEY"
 set_kv "TBANK_PASSWORD" "$TBANK_PASSWORD"
-set_kv "TBANK_TEST_MODE" "${TBANK_TEST_MODE:-0}"
+
+test_mode="${TBANK_TEST_MODE:-}"
+if [[ -z "$test_mode" ]]; then
+  if [[ "$TBANK_TERMINAL_KEY" == *DEMO* ]]; then
+    test_mode=1
+  else
+    test_mode=0
+  fi
+fi
+
+verify_ssl="${TBANK_VERIFY_SSL:-}"
+if [[ -z "$verify_ssl" ]]; then
+  if [[ "$test_mode" == "1" ]]; then
+    verify_ssl=false
+  else
+    verify_ssl=true
+  fi
+fi
+
+set_kv "TBANK_TEST_MODE" "$test_mode"
+set_kv "TBANK_VERIFY_SSL" "$verify_ssl"
 set_kv "PAYMENT_PUBLIC_BASE_URL" "${PAYMENT_PUBLIC_BASE_URL:-https://ninavpn.store}"
 set_kv "SBER_PBPN_URL" ""
 set_kv "SBER_PBPN_APPEND_AMOUNT" "0"

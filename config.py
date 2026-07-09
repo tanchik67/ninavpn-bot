@@ -229,6 +229,8 @@ class Settings(BaseSettings):
     TBANK_TEST_MODE: bool = False
     # Необязательно: свой базовый URL API (без /Init), иначе prod/test по TBANK_TEST_MODE
     TBANK_API_BASE: Optional[str] = None
+    # false — если VPS отдаёт self-signed в цепочке TLS к API Т-Банка (редко на проде)
+    TBANK_VERIFY_SSL: bool = True
     # Публичный https://ваш-домен (без слэша) — SuccessURL, FailURL, NotificationURL в Init
     PAYMENT_PUBLIC_BASE_URL: Optional[str] = None
     # Опционально: публичный базовый URL для ссылок в помощи (geo и т.д.). Если пусто — как PAYMENT_PUBLIC_BASE_URL

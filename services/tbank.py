@@ -98,6 +98,7 @@ async def init_payment(
     notification_url: Optional[str] = None,
     success_url: Optional[str] = None,
     fail_url: Optional[str] = None,
+    verify_ssl: bool = True,
 ) -> Dict[str, Any]:
     """
     POST /Init. Возвращает распарсенный JSON (Success, PaymentURL, PaymentId, …).
@@ -118,8 +119,12 @@ async def init_payment(
 
     body["Token"] = build_token(password, body)
     url = f"{base_url.rstrip('/')}/Init"
-    async with httpx.AsyncClient(timeout=45.0) as client:
-        r = await client.post(url, json=body)
+    try:
+        async with httpx.AsyncClient(timeout=45.0, verify=verify_ssl) as client:
+            r = await client.post(url, json=body)
+    except httpx.HTTPError as e:
+        log.error("T-Bank Init: HTTP error %s url=%s verify_ssl=%s", e, url, verify_ssl)
+        return {"Success": False, "Message": str(e), "http_status": 0}
     try:
         out = r.json()
     except Exception:

@@ -117,8 +117,15 @@ async def freekassa_notify(request: web.Request) -> web.Response:
 
 async def tbank_notify(request: web.Request) -> web.Response:
     """POST /payment/tbank — уведомления интернет-эквайринга Т-Банка (JSON)."""
+    if request.method == "GET":
+        # Проверка URL в браузере / кабинете Т-Бизнес (реальные уведомления — только POST).
+        return web.Response(
+            status=200,
+            text="OK — webhook Т-Банка. Уведомления принимаются методом POST.",
+            content_type="text/plain",
+        )
     if request.method != "POST":
-        return web.Response(status=405, text="Method Not Allowed")
+        return web.Response(status=405, text="Method Not Allowed", headers={"Allow": "GET, POST"})
     bot: Bot = request.app["bot"]
     data: dict
     try:
@@ -288,6 +295,7 @@ async def start_webhook_server(bot: Bot):
     app["bot"] = bot
     app.router.add_get("/payment/freekassa", freekassa_notify)
     app.router.add_post("/payment/freekassa", freekassa_notify)  # Freekassa может слать и POST
+    app.router.add_get("/payment/tbank", tbank_notify)
     app.router.add_post("/payment/tbank", tbank_notify)
     app.router.add_get("/payment/success",   payment_success)
     app.router.add_get("/payment/fail",      payment_fail)

@@ -876,6 +876,7 @@ async def cb_pay(cb: CallbackQuery):
             notification_url=notification_url,
             success_url=success_url,
             fail_url=fail_url,
+            verify_ssl=bool(settings.TBANK_VERIFY_SSL),
         )
         if not resp.get("Success"):
             log.error("T-Bank Init failed: %s", resp)
