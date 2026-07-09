@@ -1,4 +1,4 @@
-"""payments: checkout_token и checkout_email для оплаты с сайта
+"""payments: checkout_token and checkout_email for site checkout
 
 Revision ID: 003_checkout_token
 Revises: 002_admin_notify
