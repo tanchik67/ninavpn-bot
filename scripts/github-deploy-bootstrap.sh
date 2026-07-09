@@ -24,7 +24,10 @@ if ! gh auth status >/dev/null 2>&1; then
   exit 1
 fi
 
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
+SSH_KEY="${SSH_KEY:-$ROOT/.deploy/ninavpn_deploy_ed25519}"
+if [[ ! -f "$SSH_KEY" ]]; then
+  SSH_KEY="$HOME/.ssh/id_ed25519"
+fi
 SSH_HOST="${SSH_HOST:-2.27.123.28}"
 SSH_USER="${SSH_USER:-root}"
 SSH_PORT="${SSH_PORT:-22}"
@@ -39,6 +42,15 @@ gh secret set SSH_PRIVATE_KEY < "$SSH_KEY"
 gh secret set SSH_HOST -b "$SSH_HOST"
 gh secret set SSH_USER -b "$SSH_USER"
 gh secret set SSH_PORT -b "$SSH_PORT"
+
+echo
+echo "ВАЖНО: добавьте публичный ключ на сервер (один раз), если ещё не добавлен:"
+echo "  ssh-ed25519 ... см. ${SSH_KEY}.pub"
+cat "${SSH_KEY}.pub"
+echo
+echo "На сервере (консоль it-garage):"
+echo "  mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '$(cat "${SSH_KEY}.pub")' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+echo
 
 echo "→ запуск workflow Deploy to ninavpn.store"
 gh workflow run deploy.yml
