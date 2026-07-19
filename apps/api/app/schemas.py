@@ -98,6 +98,21 @@ class PaymentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaymentStatusDetail(BaseModel):
+    """Checkout follow-up: payment + provision job + config readiness."""
+
+    payment_id: int
+    payment_status: str
+    provider: str
+    provision_status: Optional[str] = None
+    provision_error: Optional[str] = None
+    subscription_id: Optional[UUID] = None
+    subscription_status: Optional[str] = None
+    has_config: bool = False
+    ready: bool = False
+
+
+
 class SupportCreateRequest(BaseModel):
     subject: str = Field(min_length=3, max_length=200)
     body: str = Field(min_length=5, max_length=5000)

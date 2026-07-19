@@ -1,0 +1,20 @@
+[Unit]
+Description=NinaVPN SaaS Worker (ARQ provision / reminders)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ninavpn-bot
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/ninavpn-bot
+EnvironmentFile=-/opt/ninavpn-bot/.env
+ExecStart=/opt/ninavpn-bot/venv/bin/python -m apps.worker.main
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

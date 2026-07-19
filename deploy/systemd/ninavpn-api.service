@@ -1,0 +1,20 @@
+[Unit]
+Description=NinaVPN SaaS API (FastAPI)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ninavpn-bot
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/ninavpn-bot
+EnvironmentFile=-/opt/ninavpn-bot/.env
+ExecStart=/opt/ninavpn-bot/venv/bin/uvicorn apps.api.app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

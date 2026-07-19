@@ -7,8 +7,14 @@ from sqlalchemy import select
 
 from adapters.payments.factory import get_payment_gateway
 from apps.api.app.deps import CurrentUser, SessionDep, client_ip
-from apps.api.app.schemas import CheckoutRequest, CheckoutResponse, PaymentOut
-from core.services.billing import BillingError, confirm_payment_and_enqueue, create_checkout, get_payment
+from apps.api.app.schemas import CheckoutRequest, CheckoutResponse, PaymentOut, PaymentStatusDetail
+from core.services.billing import (
+    BillingError,
+    confirm_payment_and_enqueue,
+    create_checkout,
+    get_payment,
+    payment_status_detail,
+)
 from infrastructure.db.models import Payment
 
 router = APIRouter()
@@ -31,6 +37,8 @@ async def checkout(
         )
     except BillingError as e:
         raise HTTPException(status_code=400, detail=e.code)
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return CheckoutResponse(
         payment_id=payment.id,
         payment_url=url,
@@ -40,8 +48,16 @@ async def checkout(
     )
 
 
-@router.get("/{payment_id}", response_model=PaymentOut)
+@router.get("/{payment_id}/status", response_model=PaymentStatusDetail)
 async def payment_status(payment_id: int, user: CurrentUser, session: SessionDep):
+    detail = await payment_status_detail(session, payment_id, user.id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="not_found")
+    return PaymentStatusDetail(**detail)
+
+
+@router.get("/{payment_id}", response_model=PaymentOut)
+async def payment_get(payment_id: int, user: CurrentUser, session: SessionDep):
     payment = await get_payment(session, payment_id, user.id)
     if not payment:
         raise HTTPException(status_code=404, detail="not_found")
@@ -83,22 +99,25 @@ async def payment_webhook(provider: str, request: Request, session: SessionDep):
     return {"ok": True, "payment_id": payment.id, "status": payment.status}
 
 
-@router.post("/mock/confirm/{payment_id}")
+@router.post("/mock/confirm/{payment_id}", response_model=PaymentStatusDetail)
 async def mock_confirm(payment_id: int, user: CurrentUser, session: SessionDep):
-    """Dev helper: confirm own pending mock payment."""
+    """Dev helper: confirm own pending mock payment and return provision status."""
     payment = await get_payment(session, payment_id, user.id)
     if not payment:
         raise HTTPException(status_code=404, detail="not_found")
     if payment.provider != "mock":
         raise HTTPException(status_code=400, detail="not_mock")
-    payment = await confirm_payment_and_enqueue(
+    await confirm_payment_and_enqueue(
         session,
         payment_id=payment.id,
         provider_payment_id=payment.provider_payment_id,
         raw={"Status": "CONFIRMED", "mock": True},
         actor_user_id=user.id,
     )
-    return {"ok": True, "payment_id": payment.id, "status": payment.status}
+    detail = await payment_status_detail(session, payment_id, user.id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="not_found")
+    return PaymentStatusDetail(**detail)
 
 
 @router.get("/return/success")

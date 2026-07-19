@@ -8,44 +8,44 @@ from core.ports.payments import PaymentGateway
 from core.settings import saas_settings
 
 
+def _tbank_from_bot_settings() -> Optional[TbankPaymentGateway]:
+    try:
+        from config import settings as bot_settings
+    except Exception:
+        return None
+    if not bot_settings.TBANK_TERMINAL_KEY or not bot_settings.TBANK_PASSWORD:
+        return None
+    return TbankPaymentGateway(
+        terminal_key=bot_settings.TBANK_TERMINAL_KEY,
+        password=bot_settings.TBANK_PASSWORD,
+        test_mode=bool(bot_settings.TBANK_TEST_MODE),
+        api_base=bot_settings.TBANK_API_BASE,
+        verify_ssl=bool(bot_settings.TBANK_VERIFY_SSL),
+    )
+
+
 def get_payment_gateway(provider: Optional[str] = None) -> PaymentGateway:
+    """
+    Resolution:
+    - provider=mock → always mock
+    - provider=tbank → T-Bank (error if missing keys unless mock fallback allowed)
+    - provider omitted → T-Bank if keys exist and PAYMENT_MOCK_ENABLED=false; else mock
+    """
     name = (provider or "").strip().lower()
-    if not name:
-        name = "tbank"
 
-    if name == "mock" or (name == "tbank" and saas_settings.PAYMENT_MOCK_ENABLED):
-        # Prefer real T-Bank when credentials present and mock not forced via provider=mock
-        if name == "mock":
-            return MockPaymentGateway()
-        try:
-            from config import settings as bot_settings
-
-            if bot_settings.TBANK_TERMINAL_KEY and bot_settings.TBANK_PASSWORD:
-                if not saas_settings.PAYMENT_MOCK_ENABLED:
-                    return TbankPaymentGateway(
-                        terminal_key=bot_settings.TBANK_TERMINAL_KEY,
-                        password=bot_settings.TBANK_PASSWORD,
-                        test_mode=bool(bot_settings.TBANK_TEST_MODE),
-                        api_base=bot_settings.TBANK_API_BASE,
-                        verify_ssl=bool(bot_settings.TBANK_VERIFY_SSL),
-                    )
-        except Exception:
-            pass
+    if name == "mock":
         return MockPaymentGateway()
 
+    tbank = _tbank_from_bot_settings()
+
     if name == "tbank":
-        from config import settings as bot_settings
+        if tbank:
+            return tbank
+        if saas_settings.PAYMENT_MOCK_ENABLED:
+            return MockPaymentGateway()
+        raise RuntimeError("TBANK_TERMINAL_KEY / TBANK_PASSWORD not configured")
 
-        if not bot_settings.TBANK_TERMINAL_KEY or not bot_settings.TBANK_PASSWORD:
-            if saas_settings.PAYMENT_MOCK_ENABLED:
-                return MockPaymentGateway()
-            raise RuntimeError("TBANK_TERMINAL_KEY / TBANK_PASSWORD not configured")
-        return TbankPaymentGateway(
-            terminal_key=bot_settings.TBANK_TERMINAL_KEY,
-            password=bot_settings.TBANK_PASSWORD,
-            test_mode=bool(bot_settings.TBANK_TEST_MODE),
-            api_base=bot_settings.TBANK_API_BASE,
-            verify_ssl=bool(bot_settings.TBANK_VERIFY_SSL),
-        )
-
-    raise ValueError(f"Unknown payment provider: {provider}")
+    # default auto
+    if tbank and not saas_settings.PAYMENT_MOCK_ENABLED:
+        return tbank
+    return MockPaymentGateway()

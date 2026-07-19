@@ -8,10 +8,9 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from adapters.payments.factory import get_payment_gateway
-from core.domain.enums import PaymentStatus, ProvisionJobStatus, SubscriptionStatus
+from core.domain.enums import PaymentStatus, ProvisionJobStatus
 from core.services.audit import write_audit
 from core.settings import saas_settings
 from infrastructure.db.models import Payment, Plan, ProvisionJob, Subscription, User
@@ -150,6 +149,13 @@ async def confirm_payment_and_enqueue(
         if not payment:
             raise BillingError("payment_not_found")
         if payment.status == PaymentStatus.CONFIRMED.value:
+            # Idempotent re-entry: finish provision if still pending/failed
+            try:
+                from core.services.provision import run_provision_for_payment
+
+                await run_provision_for_payment(session, payment.id)
+            except Exception:
+                pass
             return payment
 
         payment.status = PaymentStatus.CONFIRMED.value
@@ -181,8 +187,7 @@ async def confirm_payment_and_enqueue(
         await session.commit()
         await session.refresh(payment)
 
-        # Enqueue ARQ job; if Redis/ARQ unavailable, provision inline (dev/MVP)
-        enqueued = False
+        # Prefer ARQ worker; always also try inline so MVP works without a running worker.
         try:
             from arq import create_pool
             from arq.connections import RedisSettings
@@ -191,18 +196,16 @@ async def confirm_payment_and_enqueue(
             pool = await create_pool(redis_settings)
             await pool.enqueue_job("provision_payment", payment.id)
             await pool.aclose()
-            enqueued = True
         except Exception:
-            enqueued = False
+            pass
 
-        if not enqueued:
-            try:
-                from core.services.provision import run_provision_for_payment
+        try:
+            from core.services.provision import run_provision_for_payment
 
-                await run_provision_for_payment(session, payment.id)
-            except Exception:
-                # Job stays queued for worker retry
-                pass
+            await run_provision_for_payment(session, payment.id)
+        except Exception:
+            # Job row keeps last_error / failed|queued for client polling
+            pass
 
         return payment
     finally:
@@ -214,6 +217,39 @@ async def get_payment(session: AsyncSession, payment_id: int, user_id: UUID) -> 
     if not payment or payment.user_id != user_id:
         return None
     return payment
+
+
+async def payment_status_detail(session: AsyncSession, payment_id: int, user_id: UUID) -> Optional[dict]:
+    payment = await get_payment(session, payment_id, user_id)
+    if not payment:
+        return None
+
+    job = await session.scalar(select(ProvisionJob).where(ProvisionJob.payment_id == payment.id))
+    sub = None
+    if payment.subscription_id:
+        sub = await session.get(Subscription, payment.subscription_id)
+    if sub is None:
+        # latest active for user after provision
+        sub = await latest_subscription(session, user_id)
+
+    has_config = bool(sub and (sub.config_link or sub.config_qr))
+    prov_status = job.status if job else None
+    ready = bool(
+        payment.status == PaymentStatus.CONFIRMED.value
+        and prov_status == ProvisionJobStatus.SUCCEEDED.value
+        and has_config
+    )
+    return {
+        "payment_id": payment.id,
+        "payment_status": payment.status,
+        "provider": payment.provider,
+        "provision_status": prov_status,
+        "provision_error": (job.last_error if job else None),
+        "subscription_id": sub.id if sub else None,
+        "subscription_status": sub.status if sub else None,
+        "has_config": has_config,
+        "ready": ready,
+    }
 
 
 async def latest_subscription(session: AsyncSession, user_id: UUID) -> Optional[Subscription]:
