@@ -1,8 +1,8 @@
-
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
 from apps.api.app.deps import CurrentUser, SessionDep, client_ip
+from apps.api.app.limiter import limiter
 from apps.api.app.schemas import (
     LinkTelegramRequest,
     LoginRequest,
@@ -12,9 +12,12 @@ from apps.api.app.schemas import (
     TokenResponse,
     UserOut,
 )
+from adapters.notifications.dispatcher import NotificationDispatcher
+from core.domain.enums import NotificationChannel
+from core.ports.notifications import NotificationMessage
 from core.services import auth_service
+from core.services.audit import write_audit
 from core.services.auth_service import AuthError
-from apps.api.app.limiter import limiter
 from core.settings import saas_settings
 from infrastructure.db.models import User
 from infrastructure.redis.client import get_redis
@@ -68,17 +71,80 @@ async def me(user: CurrentUser):
 
 
 @router.post("/link-telegram", response_model=UserOut)
-async def link_telegram(body: LinkTelegramRequest, user: CurrentUser, session: SessionDep):
-    """Minimal link: one-time code stored in Redis by bot (tg_link:{code} -> tg_id)."""
+async def link_telegram(body: LinkTelegramRequest, request: Request, user: CurrentUser, session: SessionDep):
+    """Bind Telegram via one-time code from bot /linkcabinet (Redis: tg_link:{code} → tg_id)."""
+    code = body.code.strip().lower()
     redis = await get_redis()
-    stored = await redis.get(f"tg_link:{body.code.strip()}")
-    if not stored or str(stored) != str(body.tg_id):
-        raise HTTPException(status_code=400, detail="invalid_code")
-    existing = await session.scalar(select(User).where(User.tg_id == body.tg_id))
+    stored = await redis.get(f"tg_link:{code}")
+    if not stored:
+        # also try original case
+        stored = await redis.get(f"tg_link:{body.code.strip()}")
+        code = body.code.strip()
+    if not stored:
+        raise HTTPException(status_code=400, detail="invalid_or_expired_code")
+
+    try:
+        tg_id = int(stored)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="invalid_or_expired_code")
+
+    if body.tg_id is not None and int(body.tg_id) != tg_id:
+        raise HTTPException(status_code=400, detail="tg_id_mismatch")
+
+    existing = await session.scalar(select(User).where(User.tg_id == tg_id))
     if existing and existing.id != user.id:
         raise HTTPException(status_code=400, detail="tg_taken")
-    user.tg_id = body.tg_id
-    await redis.delete(f"tg_link:{body.code.strip()}")
+
+    user.tg_id = tg_id
+    await redis.delete(f"tg_link:{code}")
+    await write_audit(
+        session,
+        action="user.link_telegram",
+        entity_type="user",
+        entity_id=str(user.id),
+        actor_user_id=user.id,
+        ip=client_ip(request),
+        meta={"tg_id": tg_id},
+    )
+    await session.commit()
+    await session.refresh(user)
+
+    # Confirm in Telegram
+    try:
+        dispatcher = NotificationDispatcher()
+        await dispatcher.dispatch(
+            NotificationMessage(
+                channel=NotificationChannel.TELEGRAM,
+                template="telegram_linked",
+                recipient=str(tg_id),
+                body=(
+                    "✅ Telegram привязан к кабинету NinaVPN.\n\n"
+                    f"Email: <code>{user.email}</code>\n"
+                    "Теперь сюда будут приходить уведомления о доступе и окончании подписки."
+                ),
+            )
+        )
+    except Exception:
+        pass
+
+    return user
+
+
+@router.post("/unlink-telegram", response_model=UserOut)
+async def unlink_telegram(request: Request, user: CurrentUser, session: SessionDep):
+    if not user.tg_id:
+        return user
+    old = user.tg_id
+    user.tg_id = None
+    await write_audit(
+        session,
+        action="user.unlink_telegram",
+        entity_type="user",
+        entity_id=str(user.id),
+        actor_user_id=user.id,
+        ip=client_ip(request),
+        meta={"tg_id": old},
+    )
     await session.commit()
     await session.refresh(user)
     return user

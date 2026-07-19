@@ -28,6 +28,7 @@ export default function AppLayout() {
       <Tabs.Screen name="subscription" options={{ title: "Подписка" }} />
       <Tabs.Screen name="config" options={{ title: "Конфиг" }} />
       <Tabs.Screen name="support" options={{ title: "Поддержка" }} />
+      <Tabs.Screen name="account" options={{ title: "Аккаунт" }} />
       <Tabs.Screen name="pay" options={{ href: null, title: "Оплата" }} />
     </Tabs>
   );

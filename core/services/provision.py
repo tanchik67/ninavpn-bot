@@ -160,7 +160,7 @@ async def run_provision_for_payment(session: AsyncSession, payment_id: int) -> S
     # Best-effort immediate notify
     try:
         dispatcher = NotificationDispatcher()
-        await dispatcher.dispatch(
+        ok = await dispatcher.dispatch(
             NotificationMessage(
                 channel=channel,
                 template="access_ready",
@@ -170,6 +170,20 @@ async def run_provision_for_payment(session: AsyncSession, payment_id: int) -> S
                 payload=payload,
             )
         )
+        if ok:
+            # Avoid double-send by worker outbox flush
+            from sqlalchemy import update
+
+            await session.execute(
+                update(NotificationOutbox)
+                .where(
+                    NotificationOutbox.user_id == user.id,
+                    NotificationOutbox.template == "access_ready",
+                    NotificationOutbox.status == NotificationOutboxStatus.PENDING.value,
+                )
+                .values(status=NotificationOutboxStatus.SENT.value, sent_at=datetime.utcnow())
+            )
+            await session.commit()
     except Exception:
         log.exception("immediate notify failed payment_id=%s", payment_id)
 

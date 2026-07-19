@@ -129,8 +129,12 @@ class SupportTicketOut(BaseModel):
 
 
 class LinkTelegramRequest(BaseModel):
-    tg_id: int
+    """One-time code from Telegram /linkcabinet. tg_id resolved from Redis."""
+
     code: str = Field(min_length=4, max_length=64)
+    # Optional legacy field — ignored if code is valid in Redis
+    tg_id: Optional[int] = None
+
 
 
 class AdminExtendRequest(BaseModel):

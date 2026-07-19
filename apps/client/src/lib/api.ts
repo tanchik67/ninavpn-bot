@@ -3,7 +3,9 @@ import Constants from "expo-constants";
 
 const EXTRA = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
 export const API_URL =
-  process.env.EXPO_PUBLIC_API_URL || EXTRA?.apiUrl || "http://localhost:8000";
+  process.env.EXPO_PUBLIC_API_URL ||
+  EXTRA?.apiUrl ||
+  "https://ninavpn.store";
 
 const ACCESS_KEY = "nv_access";
 const REFRESH_KEY = "nv_refresh";

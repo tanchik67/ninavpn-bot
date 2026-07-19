@@ -7,6 +7,8 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
+from config import settings
+
 log = logging.getLogger(__name__)
 router = Router()
 
@@ -22,14 +24,19 @@ async def cmd_link_cabinet(message: Message) -> None:
     except Exception:
         log.exception("linkcabinet failed")
         await message.answer(
-            "Не удалось создать код привязки. Проверьте, что Redis запущен (REDIS_URL)."
+            "Не удалось создать код привязки.\n"
+            "Напишите в поддержку или попробуйте позже."
         )
         return
+
     await message.answer(
-        "🔗 Привязка к кабинету NinaVPN\n\n"
-        f"Ваш код: <code>{code}</code>\n"
-        f"Telegram ID: <code>{message.from_user.id}</code>\n\n"
-        "В приложении вызовите привязку с этими данными "
-        "(POST /api/v1/auth/link-telegram). Код действует 10 минут.",
+        "🔗 <b>Привязка Telegram к кабинету</b>\n\n"
+        f"1. Откройте приложение NinaVPN\n"
+        f"2. Вкладка <b>Аккаунт</b> → «Привязать Telegram»\n"
+        f"3. Введите код: <code>{code}</code>\n\n"
+        f"Код действует <b>10 минут</b>.\n"
+        f"Ваш Telegram ID: <code>{message.from_user.id}</code>\n\n"
+        "После привязки сюда будут приходить уведомления "
+        "о выдаче конфига и окончании подписки.",
         parse_mode="HTML",
     )

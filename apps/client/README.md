@@ -6,19 +6,25 @@
 
 ```bash
 cd apps/client
+cp .env.example .env   # EXPO_PUBLIC_API_URL=https://ninavpn.store
 npm install
+npm run web            # или npm start
+```
+
+Локальный API:
+
+```bash
 EXPO_PUBLIC_API_URL=http://localhost:8000 npm run web
 ```
 
-Для устройства в LAN укажите IP машины с API:
+Прод по умолчанию: `https://ninavpn.store` (см. `app.json` → `extra.apiUrl`).
 
-```bash
-EXPO_PUBLIC_API_URL=http://192.168.1.10:8000 npm start
-```
+## Привязка Telegram
+
+1. В боте: `/linkcabinet` → получите код  
+2. В приложении: **Аккаунт** → вставьте код → «Привязать Telegram»  
+3. Бот пришлёт подтверждение; дальше туда же уходят уведомления о доступе и окончании подписки
 
 ## Screens
 
-- Auth: login / register
-- Plans → checkout (mock confirm в dev)
-- Subscription / Config (QR + deeplinks)
-- Support tickets
+- Auth, Plans, Pay (poll provision), Subscription, Config/QR, Support, Account
