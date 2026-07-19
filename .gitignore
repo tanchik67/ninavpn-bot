@@ -5,6 +5,7 @@
 .deploy/
 *.db
 *.sqlite3
+saas_ninavpn.db
 
 # Python
 venv/
@@ -31,6 +32,12 @@ __MACOSX/
 *.log
 tmp/
 temp/
+
+# SaaS / Expo
+apps/client/node_modules/
+apps/client/.expo/
+apps/client/dist/
+.expo/
 
 # Кэш geoip/geosite (v2ray RU rules)
 data/v2ray_geo/*.dat

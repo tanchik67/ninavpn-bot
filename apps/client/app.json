@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "NinaVPN",
+    "slug": "ninavpn",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "ninavpn",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "store.ninavpn.app"
+    },
+    "android": {
+      "package": "store.ninavpn.app"
+    },
+    "extra": {
+      "apiUrl": "http://localhost:8000"
+    }
+  }
+}

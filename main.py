@@ -486,6 +486,12 @@ async def main():
     dp.callback_query.middleware(ChannelSubscriptionMiddleware())
     dp.callback_query.middleware(SafeCallbackAnswerMiddleware())
     dp.include_router(router)
+    try:
+        from handlers.saas_link import router as saas_link_router
+
+        dp.include_router(saas_link_router)
+    except Exception as e:
+        log.warning("SaaS link router not loaded: %s", e)
 
     try:
         await setup_bot_commands(bot)

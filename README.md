@@ -6,23 +6,20 @@
 
 ```
 ninavpn-bot/
-├── main.py                  # точка входа
-├── config.py                # настройки и тарифы
-├── database.py              # модели БД (SQLite async)
-├── requirements.txt
-├── .env.example             # шаблон переменных
-├── ninavpn-bot.service      # systemd unit
-├── handlers/
-│   └── main.py              # все хэндлеры
-├── keyboards/
-│   └── inline.py            # все клавиатуры
-├── services/
-│   ├── marzban.py           # Marzban API
-│   └── payment.py           # USDT/TON, Т-Банк, Freekassa (IPN)
+├── main.py                  # Telegram bot entry
+├── apps/api/                # FastAPI SaaS API
+├── apps/worker/             # ARQ provision / reminders
+├── apps/client/             # Expo (iOS / Android / Web)
+├── core/                    # shared domain + ports
+├── adapters/                # vpn / payments / notifications
+├── infrastructure/          # Postgres models, Redis
+├── docker-compose.yml
+├── handlers/                # bot handlers (+ /linkcabinet)
+├── services/                # Marzban, 3x-ui, payments…
 └── utils/
-    ├── texts.py             # все тексты сообщений
-    └── scheduler.py         # планировщик напоминаний
 ```
+
+SaaS локально: см. [apps/api/README.md](apps/api/README.md) и [apps/client/README.md](apps/client/README.md).
 
 ---
 
