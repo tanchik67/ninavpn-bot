@@ -28,7 +28,7 @@ SSH_KEY="${SSH_KEY:-$ROOT/.deploy/ninavpn_deploy_ed25519}"
 if [[ ! -f "$SSH_KEY" ]]; then
   SSH_KEY="$HOME/.ssh/id_ed25519"
 fi
-SSH_HOST="${SSH_HOST:-2.27.123.28}"
+SSH_HOST="${SSH_HOST:-2.27.122.201}"
 SSH_USER="${SSH_USER:-root}"
 SSH_PORT="${SSH_PORT:-22}"
 

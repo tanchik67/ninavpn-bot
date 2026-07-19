@@ -37,7 +37,7 @@ jobs:
             echo "  ./scripts/github-deploy-bootstrap.sh"
             echo ""
             echo "Или вручную: GitHub → Settings → Secrets and variables → Actions"
-            echo "  SSH_HOST=2.27.123.28  SSH_USER=root  SSH_PRIVATE_KEY=<приватный ключ>"
+            echo "  SSH_HOST=2.27.122.201  SSH_USER=root  SSH_PRIVATE_KEY=<приватный ключ>"
             exit 1
           fi
 

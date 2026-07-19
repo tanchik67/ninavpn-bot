@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-REMOTE_HOST="${REMOTE_HOST:-2.27.123.28}"
+REMOTE_HOST="${REMOTE_HOST:-2.27.122.201}"
 REMOTE_USER="${REMOTE_USER:-root}"
 REMOTE_PATH="${REMOTE_PATH:-/opt/ninavpn-bot}"
 
