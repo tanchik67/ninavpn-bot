@@ -6,9 +6,18 @@
 
 ```bash
 cd apps/client
-cp .env.example .env   # EXPO_PUBLIC_API_URL=https://ninavpn.store
+cp .env.example .env
 npm install
-npm run web            # или npm start
+npx expo install
+npm run web
+```
+
+Откроется браузер: **http://localhost:8081**
+
+Важно: в команде `cp` не копируйте комментарии после `#` — только:
+
+```bash
+cp .env.example .env
 ```
 
 Локальный API:
