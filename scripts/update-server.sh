@@ -12,6 +12,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# nginx (www-data) must traverse into ROOT to serve site/; keep .env private
+if [[ "${EUID:-0}" -eq 0 ]]; then
+  chmod 711 "$ROOT" 2>/dev/null || true
+  if [[ -d "$ROOT/site" ]]; then
+    chmod 755 "$ROOT/site" 2>/dev/null || true
+    chmod 644 "$ROOT/site"/*.html 2>/dev/null || true
+  fi
+  chmod 600 "$ROOT/.env" 2>/dev/null || true
+fi
+
 if [[ ! -d venv ]]; then
   echo "Ошибка: нет каталога venv в $ROOT"
   echo "Один раз: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt"
