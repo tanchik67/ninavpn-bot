@@ -90,8 +90,13 @@ jobs:
             if [[ -f deploy/nginx/ninavpn.store.conf ]] && command -v nginx >/dev/null 2>&1; then
               cp deploy/nginx/ninavpn.store.conf /etc/nginx/sites-available/ninavpn.store 2>/dev/null || true
               ln -sf /etc/nginx/sites-available/ninavpn.store /etc/nginx/sites-enabled/ninavpn.store 2>/dev/null || true
-              nginx -t && systemctl reload nginx
+              if nginx -t; then
+                systemctl reload nginx
+              else
+                echo "::warning::nginx -t failed — bot already restarted; fix nginx config on server"
+              fi
             fi
 
             systemctl restart ninavpn-bot
+            systemctl is-active --quiet ninavpn-bot
             curl -sf -o /dev/null -w "webhook HTTP %{http_code}\n" http://127.0.0.1:8080/payment/tbank || true
