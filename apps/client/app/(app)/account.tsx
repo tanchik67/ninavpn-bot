@@ -1,21 +1,16 @@
+import { router } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { BrandMark } from "../../src/components/BrandMark";
+import { Field } from "../../src/components/Field";
+import { GlassCard } from "../../src/components/GlassCard";
+import { GradientButton } from "../../src/components/GradientButton";
+import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api, API_URL } from "../../src/lib/api";
 import { useAuth } from "../../src/lib/auth";
 import { colors } from "../../src/lib/theme";
 
-type User = {
-  id: string;
-  email: string;
-  tg_id?: number | null;
-};
+type User = { id: string; email: string; tg_id?: number | null };
 
 export default function AccountScreen() {
   const { user, logout, refreshMe } = useAuth();
@@ -35,7 +30,7 @@ export default function AccountScreen() {
       });
       await refreshMe();
       setCode("");
-      setMsg("Telegram привязан. Проверьте сообщение в боте.");
+      setMsg("Telegram привязан");
     } catch (e: any) {
       setError(e?.message || "Не удалось привязать");
     } finally {
@@ -46,96 +41,72 @@ export default function AccountScreen() {
   const unlink = async () => {
     setBusy(true);
     setError("");
-    setMsg("");
     try {
       await api<User>("/api/v1/auth/unlink-telegram", { method: "POST" });
       await refreshMe();
-      setMsg("Telegram отвязан.");
+      setMsg("Telegram отвязан");
     } catch (e: any) {
-      setError(e?.message || "Ошибка отвязки");
+      setError(e?.message || "Ошибка");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.title}>Аккаунт</Text>
-      <Text style={styles.row}>Email: {user?.email}</Text>
-      <Text style={styles.row}>
-        Telegram: {user?.tg_id ? `привязан (id ${user.tg_id})` : "не привязан"}
-      </Text>
-      <Text style={styles.hint}>
-        В Telegram-боте отправьте /linkcabinet, скопируйте код и вставьте ниже.
-        После привязки уведомления о доступе и окончании подписки придут в Telegram.
-      </Text>
+    <ScreenBackground>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <BrandMark size={26} />
+        <Text style={styles.title}>Settings</Text>
 
-      {!user?.tg_id ? (
-        <>
-          <TextInput
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="Код из бота"
-            placeholderTextColor={colors.muted}
-            value={code}
-            onChangeText={setCode}
-          />
-          <Pressable style={styles.btn} onPress={link} disabled={busy || code.trim().length < 4}>
-            {busy ? (
-              <ActivityIndicator color={colors.bg} />
-            ) : (
-              <Text style={styles.btnText}>Привязать Telegram</Text>
-            )}
-          </Pressable>
-        </>
-      ) : (
-        <Pressable style={styles.secondary} onPress={unlink} disabled={busy}>
-          <Text style={styles.btnText}>Отвязать Telegram</Text>
-        </Pressable>
-      )}
+        <GlassCard style={{ gap: 6 }}>
+          <Text style={styles.section}>General</Text>
+          <Text style={styles.row}>Email: {user?.email}</Text>
+          <Text style={styles.row}>
+            Telegram: {user?.tg_id ? `id ${user.tg_id}` : "не привязан"}
+          </Text>
+        </GlassCard>
 
-      {!!msg && <Text style={styles.ok}>{msg}</Text>}
-      {!!error && <Text style={styles.error}>{error}</Text>}
+        <GlassCard style={{ gap: 10 }}>
+          <Text style={styles.section}>Telegram</Text>
+          <Text style={styles.hint}>
+            В боте: /linkcabinet → вставьте код сюда. Уведомления о доступе придут в Telegram.
+          </Text>
+          {!user?.tg_id ? (
+            <>
+              <Field placeholder="Код из бота" value={code} onChangeText={setCode} autoCapitalize="none" />
+              <GradientButton
+                label="Привязать"
+                onPress={link}
+                busy={busy}
+                disabled={code.trim().length < 4}
+              />
+            </>
+          ) : (
+            <GradientButton variant="ghost" label="Отвязать Telegram" onPress={unlink} busy={busy} />
+          )}
+          {!!msg && <Text style={styles.ok}>{msg}</Text>}
+          {!!error && <Text style={styles.error}>{error}</Text>}
+        </GlassCard>
 
-      <Text style={styles.api}>API: {API_URL}</Text>
-      <Pressable onPress={logout} style={{ marginTop: 24 }}>
-        <Text style={styles.logout}>Выйти</Text>
-      </Pressable>
-    </View>
+        <GlassCard style={{ gap: 10 }}>
+          <Text style={styles.section}>Support</Text>
+          <GradientButton variant="ghost" label="Написать в поддержку" onPress={() => router.push("/(app)/support")} />
+        </GlassCard>
+
+        <Text style={styles.api}>API: {API_URL}</Text>
+        <GradientButton variant="ghost" label="Выйти" onPress={logout} />
+      </ScrollView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20, gap: 10 },
-  title: { color: colors.text, fontSize: 28, fontWeight: "800", marginBottom: 8 },
-  row: { color: colors.muted, fontSize: 16 },
-  hint: { color: colors.muted, marginTop: 12, marginBottom: 8, lineHeight: 20 },
-  input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    color: colors.text,
-  },
-  btn: {
-    backgroundColor: colors.accent,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
-  },
-  secondary: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  btnText: { color: colors.text, fontWeight: "700" },
-  ok: { color: colors.accent },
+  scroll: { padding: 20, paddingTop: 56, paddingBottom: 40, gap: 14 },
+  title: { color: colors.text, fontSize: 28, fontWeight: "900" },
+  section: { color: colors.text, fontWeight: "800", fontSize: 16 },
+  row: { color: colors.muted },
+  hint: { color: colors.muted, lineHeight: 20 },
+  ok: { color: colors.success },
   error: { color: colors.danger },
-  api: { color: colors.muted, fontSize: 12, marginTop: 20 },
-  logout: { color: colors.muted, textAlign: "center" },
+  api: { color: colors.muted, fontSize: 11 },
 });

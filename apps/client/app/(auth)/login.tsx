@@ -1,13 +1,11 @@
 import { Link, router } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { BrandMark } from "../../src/components/BrandMark";
+import { Field } from "../../src/components/Field";
+import { GlassCard } from "../../src/components/GlassCard";
+import { GradientButton } from "../../src/components/GradientButton";
+import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { useAuth } from "../../src/lib/auth";
 import { colors } from "../../src/lib/theme";
 
@@ -23,7 +21,7 @@ export default function LoginScreen() {
     setError("");
     try {
       await login(email.trim(), password);
-      router.replace("/(app)/plans");
+      router.replace("/(app)/home");
     } catch (e: any) {
       setError(e?.message || "Ошибка входа");
     } finally {
@@ -32,57 +30,55 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.brand}>NinaVPN</Text>
-      <Text style={styles.sub}>Войдите в кабинет</Text>
-      <TextInput
-        style={styles.input}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        placeholder="Email"
-        placeholderTextColor={colors.muted}
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        secureTextEntry
-        placeholder="Пароль"
-        placeholderTextColor={colors.muted}
-        value={password}
-        onChangeText={setPassword}
-      />
-      {!!error && <Text style={styles.error}>{error}</Text>}
-      <Pressable style={styles.btn} onPress={onSubmit} disabled={busy}>
-        {busy ? <ActivityIndicator color={colors.bg} /> : <Text style={styles.btnText}>Войти</Text>}
-      </Pressable>
-      <Link href="/(auth)/register" style={styles.link}>
-        Создать аккаунт
-      </Link>
-    </View>
+    <ScreenBackground>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <BrandMark size={40} />
+          <Text style={styles.headline}>Welcome to{"\n"}Unlimited Freedom.</Text>
+          <Text style={styles.sub}>Войдите в кабинет NinaVPN</Text>
+
+          <GlassCard style={{ gap: 12 }}>
+            <Field
+              label="Email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholder="you@email.com"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <Field
+              label="Пароль"
+              secureTextEntry
+              placeholder="••••••••"
+              value={password}
+              onChangeText={setPassword}
+            />
+            {!!error && <Text style={styles.error}>{error}</Text>}
+            <GradientButton label="Get Started" onPress={onSubmit} busy={busy} />
+          </GlassCard>
+
+          <Link href="/(auth)/register" style={styles.link}>
+            Создать аккаунт
+          </Link>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 24, justifyContent: "center", gap: 12 },
-  brand: { color: colors.text, fontSize: 36, fontWeight: "800", letterSpacing: -0.5 },
-  sub: { color: colors.muted, marginBottom: 12 },
-  input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
+  scroll: { flexGrow: 1, padding: 24, paddingTop: 72, gap: 14, justifyContent: "center" },
+  headline: {
     color: colors.text,
-  },
-  btn: {
-    backgroundColor: colors.accent,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 34,
     marginTop: 8,
   },
-  btnText: { color: colors.bg, fontWeight: "700", fontSize: 16 },
-  link: { color: colors.accent, marginTop: 16, textAlign: "center" },
+  sub: { color: colors.muted, marginBottom: 8 },
+  link: { color: colors.accentPink, textAlign: "center", marginTop: 8, fontWeight: "700" },
   error: { color: colors.danger },
 });

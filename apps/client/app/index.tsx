@@ -8,10 +8,10 @@ export default function Index() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg }}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={colors.accentPink} />
       </View>
     );
   }
-  if (user) return <Redirect href="/(app)/plans" />;
+  if (user) return <Redirect href="/(app)/home" />;
   return <Redirect href="/(auth)/login" />;
 }

@@ -3,13 +3,15 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { BrandMark } from "../../src/components/BrandMark";
+import { GlassCard } from "../../src/components/GlassCard";
+import { GradientButton } from "../../src/components/GradientButton";
+import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
-import { useAuth } from "../../src/lib/auth";
 import { colors } from "../../src/lib/theme";
 
 type Plan = {
@@ -23,7 +25,6 @@ type Plan = {
 };
 
 export default function PlansScreen() {
-  const { user, logout } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,65 +42,55 @@ export default function PlansScreen() {
     })();
   }, []);
 
-  const buy = (planKey: string) => {
-    router.push({ pathname: "/(app)/pay", params: { plan_key: planKey } });
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.hello}>Привет, {user?.email}</Text>
-      {!!error && <Text style={styles.error}>{error}</Text>}
-      <FlatList
-        data={plans}
-        keyExtractor={(p) => p.id}
-        contentContainerStyle={{ gap: 12, paddingBottom: 40 }}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.desc}>{item.description}</Text>
-            <Text style={styles.price}>{item.price_rub} ₽</Text>
-            <Pressable style={styles.btn} onPress={() => buy(item.plan_key)}>
-              <Text style={styles.btnText}>Оформить</Text>
-            </Pressable>
-          </View>
+    <ScreenBackground>
+      <View style={styles.wrap}>
+        <BrandMark size={26} />
+        <Text style={styles.title}>Plans</Text>
+        <Text style={styles.sub}>Выберите тариф — конфиг появится на Home</Text>
+        {loading ? (
+          <ActivityIndicator color={colors.accentPink} style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={plans}
+            keyExtractor={(p) => p.id}
+            contentContainerStyle={{ gap: 12, paddingBottom: 40, paddingTop: 8 }}
+            ListHeaderComponent={!!error ? <Text style={styles.error}>{error}</Text> : null}
+            renderItem={({ item, index }) => (
+              <GlassCard>
+                <View style={styles.row}>
+                  <Text style={styles.flag}>{["🇩🇪", "🇺🇸", "🇫🇷", "🇳🇱", "🇬🇧"][index % 5]}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.name}>{item.name}</Text>
+                    <Text style={styles.desc}>
+                      {item.description || `${item.months} мес · ${item.devices} устр.`}
+                    </Text>
+                  </View>
+                  <Text style={styles.price}>{item.price_rub} ₽</Text>
+                </View>
+                <GradientButton
+                  label="Оформить"
+                  onPress={() =>
+                    router.push({ pathname: "/(app)/pay", params: { plan_key: item.plan_key } })
+                  }
+                />
+              </GlassCard>
+            )}
+          />
         )}
-      />
-      <Pressable onPress={logout}>
-        <Text style={styles.logout}>Выйти</Text>
-      </Pressable>
-    </View>
+      </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg },
-  hello: { color: colors.muted, marginBottom: 16 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  name: { color: colors.text, fontSize: 22, fontWeight: "700" },
-  desc: { color: colors.muted, marginTop: 6 },
-  price: { color: colors.accent, fontSize: 28, fontWeight: "800", marginVertical: 12 },
-  btn: {
-    backgroundColor: colors.accent,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
-  },
-  btnText: { color: colors.bg, fontWeight: "700" },
-  logout: { color: colors.muted, textAlign: "center", marginTop: 8 },
+  wrap: { flex: 1, padding: 20, paddingTop: 56 },
+  title: { color: colors.text, fontSize: 28, fontWeight: "900", marginTop: 8 },
+  sub: { color: colors.muted, marginBottom: 8 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
+  flag: { fontSize: 28 },
+  name: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  desc: { color: colors.muted, marginTop: 2, fontSize: 13 },
+  price: { color: colors.accentTeal, fontWeight: "900", fontSize: 18 },
   error: { color: colors.danger, marginBottom: 8 },
 });

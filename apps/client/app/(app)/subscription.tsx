@@ -1,6 +1,10 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect, router } from "expo-router";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { BrandMark } from "../../src/components/BrandMark";
+import { GlassCard } from "../../src/components/GlassCard";
+import { GradientButton } from "../../src/components/GradientButton";
+import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
 import { colors } from "../../src/lib/theme";
 
@@ -35,67 +39,74 @@ export default function SubscriptionScreen() {
     }, [])
   );
 
-  if (sub === undefined) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
-  }
-
-  if (!sub) {
-    return (
-      <View style={styles.wrap}>
-        <Text style={styles.title}>Нет активной подписки</Text>
-        <Pressable style={styles.btn} onPress={() => router.push("/(app)/plans")}>
-          <Text style={styles.btnText}>Выбрать тариф</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.title}>{sub.plan_name || "Подписка"}</Text>
-      <Text style={styles.row}>Статус: {sub.status}</Text>
-      <Text style={styles.row}>Устройств: {sub.devices}</Text>
-      <Text style={styles.row}>Срок: {sub.months} мес.</Text>
-      <Text style={styles.row}>
-        До: {sub.expires_at ? new Date(sub.expires_at).toLocaleString() : "—"}
-      </Text>
-      {!!error && <Text style={styles.error}>{error}</Text>}
-      <Pressable style={styles.btn} onPress={() => router.push("/(app)/config")}>
-        <Text style={styles.btnText}>Открыть конфиг</Text>
-      </Pressable>
-      <Pressable
-        style={[styles.btn, styles.secondary]}
-        onPress={async () => {
-          const checkout = await api<{ payment_url: string }>("/api/v1/subscriptions/me/renew", {
-            method: "POST",
-            body: "{}",
-          });
-          router.push({ pathname: "/(app)/pay", params: { payment_url: checkout.payment_url } });
-        }}
-      >
-        <Text style={styles.btnText}>Продлить</Text>
-      </Pressable>
-    </View>
+    <ScreenBackground>
+      <View style={styles.wrap}>
+        <BrandMark size={26} />
+        <Text style={styles.title}>Data & Status</Text>
+
+        {sub === undefined ? (
+          <ActivityIndicator color={colors.accentPink} style={{ marginTop: 40 }} />
+        ) : !sub ? (
+          <GlassCard>
+            <Text style={styles.empty}>Нет активной подписки</Text>
+            <GradientButton label="Выбрать тариф" onPress={() => router.push("/(app)/plans")} />
+          </GlassCard>
+        ) : (
+          <>
+            <View style={styles.stats}>
+              <GlassCard style={styles.stat}>
+                <Text style={styles.statLabel}>Status</Text>
+                <Text style={styles.statValue}>{sub.status}</Text>
+              </GlassCard>
+              <GlassCard style={styles.stat}>
+                <Text style={styles.statLabel}>Devices</Text>
+                <Text style={styles.statValue}>{sub.devices}</Text>
+              </GlassCard>
+              <GlassCard style={styles.stat}>
+                <Text style={styles.statLabel}>Months</Text>
+                <Text style={styles.statValue}>{sub.months}</Text>
+              </GlassCard>
+            </View>
+
+            <GlassCard style={{ gap: 8 }}>
+              <Text style={styles.plan}>{sub.plan_name || "Подписка"}</Text>
+              <Text style={styles.muted}>
+                До: {sub.expires_at ? new Date(sub.expires_at).toLocaleString() : "—"}
+              </Text>
+              {!!error && <Text style={styles.error}>{error}</Text>}
+              <GradientButton label="Открыть конфиг" onPress={() => router.push("/(app)/home")} />
+              <GradientButton
+                variant="ghost"
+                label="Продлить"
+                onPress={async () => {
+                  const checkout = await api<{ payment_url: string; payment_id: number }>(
+                    "/api/v1/subscriptions/me/renew",
+                    { method: "POST", body: "{}" }
+                  );
+                  router.push({
+                    pathname: "/(app)/pay",
+                    params: { payment_url: checkout.payment_url },
+                  });
+                }}
+              />
+            </GlassCard>
+          </>
+        )}
+      </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20, gap: 10 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { color: colors.text, fontSize: 28, fontWeight: "800", marginBottom: 8 },
-  row: { color: colors.muted, fontSize: 16 },
-  btn: {
-    backgroundColor: colors.accent,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  secondary: { backgroundColor: colors.accentDim },
-  btnText: { color: colors.bg, fontWeight: "700" },
+  wrap: { flex: 1, padding: 20, paddingTop: 56, gap: 14 },
+  title: { color: colors.text, fontSize: 28, fontWeight: "900" },
+  stats: { flexDirection: "row", gap: 8 },
+  stat: { flex: 1, paddingVertical: 14 },
+  statLabel: { color: colors.muted, fontSize: 11, fontWeight: "700" },
+  statValue: { color: colors.text, fontSize: 18, fontWeight: "900", marginTop: 4 },
+  plan: { color: colors.text, fontSize: 20, fontWeight: "800" },
+  muted: { color: colors.muted },
+  empty: { color: colors.muted, marginBottom: 12 },
   error: { color: colors.danger },
 });

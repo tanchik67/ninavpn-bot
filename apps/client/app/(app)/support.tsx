@@ -1,14 +1,11 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
+import { BrandMark } from "../../src/components/BrandMark";
+import { Field } from "../../src/components/Field";
+import { GlassCard } from "../../src/components/GlassCard";
+import { GradientButton } from "../../src/components/GradientButton";
+import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
 import { colors } from "../../src/lib/theme";
 
@@ -57,77 +54,45 @@ export default function SupportScreen() {
   };
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.title}>Поддержка</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Тема"
-        placeholderTextColor={colors.muted}
-        value={subject}
-        onChangeText={setSubject}
-      />
-      <TextInput
-        style={[styles.input, styles.area]}
-        placeholder="Опишите проблему"
-        placeholderTextColor={colors.muted}
-        multiline
-        value={body}
-        onChangeText={setBody}
-      />
-      {!!error && <Text style={styles.error}>{error}</Text>}
-      <Pressable style={styles.btn} onPress={submit} disabled={busy}>
-        {busy ? (
-          <ActivityIndicator color={colors.bg} />
-        ) : (
-          <Text style={styles.btnText}>Отправить</Text>
-        )}
-      </Pressable>
-      <FlatList
-        data={tickets}
-        keyExtractor={(t) => t.id}
-        style={{ marginTop: 16 }}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{item.subject}</Text>
-            <Text style={styles.muted}>{item.status}</Text>
-            <Text style={styles.body}>{item.body}</Text>
-          </View>
-        )}
-      />
-    </View>
+    <ScreenBackground>
+      <View style={styles.wrap}>
+        <BrandMark size={26} />
+        <Text style={styles.title}>Support</Text>
+        <GlassCard style={{ gap: 10 }}>
+          <Field placeholder="Тема" value={subject} onChangeText={setSubject} />
+          <Field
+            placeholder="Опишите проблему"
+            value={body}
+            onChangeText={setBody}
+            multiline
+            style={{ minHeight: 100, textAlignVertical: "top" }}
+          />
+          {!!error && <Text style={styles.error}>{error}</Text>}
+          <GradientButton label="Отправить" onPress={submit} busy={busy} />
+        </GlassCard>
+        <FlatList
+          data={tickets}
+          keyExtractor={(t) => t.id}
+          style={{ marginTop: 12 }}
+          contentContainerStyle={{ gap: 10, paddingBottom: 40 }}
+          renderItem={({ item }) => (
+            <GlassCard>
+              <Text style={styles.cardTitle}>{item.subject}</Text>
+              <Text style={styles.muted}>{item.status}</Text>
+              <Text style={styles.body}>{item.body}</Text>
+            </GlassCard>
+          )}
+        />
+      </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20 },
-  title: { color: colors.text, fontSize: 28, fontWeight: "800", marginBottom: 12 },
-  input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    color: colors.text,
-    marginBottom: 10,
-  },
-  area: { minHeight: 100, textAlignVertical: "top" },
-  btn: {
-    backgroundColor: colors.accent,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
-  },
-  btnText: { color: colors.bg, fontWeight: "700" },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cardTitle: { color: colors.text, fontWeight: "700" },
+  wrap: { flex: 1, padding: 20, paddingTop: 56 },
+  title: { color: colors.text, fontSize: 28, fontWeight: "900", marginBottom: 12 },
+  cardTitle: { color: colors.text, fontWeight: "800" },
   muted: { color: colors.muted, marginTop: 4 },
   body: { color: colors.text, marginTop: 8 },
-  error: { color: colors.danger, marginBottom: 8 },
+  error: { color: colors.danger },
 });
