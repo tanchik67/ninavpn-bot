@@ -128,6 +128,23 @@ class SupportTicketOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SupportMessageOut(BaseModel):
+    id: UUID
+    author_user_id: UUID
+    body: str
+    created_at: datetime
+    is_staff: bool = False
+
+
+class SupportReplyRequest(BaseModel):
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class SupportChatOut(BaseModel):
+    ticket: SupportTicketOut
+    messages: list[SupportMessageOut]
+
+
 class LinkTelegramRequest(BaseModel):
     """One-time code from Telegram /linkcabinet. tg_id resolved from Redis."""
 

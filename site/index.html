@@ -40,7 +40,7 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Onest', sans-serif;
+    font-family: 'Onest', "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     overflow-x: hidden;
   }
 
@@ -115,6 +115,20 @@
   .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 60px; }
   .feat-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 36px; transition: all 0.3s; }
   .feat-card:hover { transform: translateY(-4px); border-color: rgba(123, 47, 255, 0.4); }
+  /* Emoji must not inherit Unbounded/Onest — those faces lack color glyphs */
+  .emoji, .feat-emoji, .how-emoji, .popular-badge {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", "Onest", sans-serif;
+    -webkit-text-fill-color: initial;
+  }
+  .feat-emoji, .how-emoji {
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1;
+    background: none;
+    display: block;
+  }
+  .feat-emoji { font-size: 2rem; margin-bottom: 16px; }
+  .how-emoji { font-size: 3rem; margin-bottom: 12px; }
 
   .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; max-width: 900px; margin: 40px auto 0; }
   .price-card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 40px 32px; position: relative; transition: 0.3s; }
@@ -143,7 +157,15 @@
 
   .payment-section { background: var(--surface); padding: 80px 48px; text-align: center; }
   .payment-methods { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 40px; }
-  .pay-badge { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 22px; font-weight: 500; transition: 0.2s; }
+  .pay-badge {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 22px;
+    font-weight: 500;
+    transition: 0.2s;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Onest", sans-serif;
+  }
 
   .faq-list { max-width: 700px; margin: 60px auto 0; }
   .faq-item { border-bottom: 1px solid var(--border); }
@@ -230,10 +252,10 @@
   <div class="section-tag reveal">Почему NINAVPN</div>
   <h2 class="reveal">Не просто VPN.<br>Настоящая свобода.</h2>
   <div class="features-grid">
-    <div class="feat-card reveal"><div style="font-size:2rem; margin-bottom:16px;">🛡️</div><h3>v2ray + XTLS</h3><p>Самый продвинутый протокол. Трафик выглядит как HTTPS — блокировки бессильны.</p></div>
-    <div class="feat-card reveal"><div style="font-size:2rem;">⚡</div><h3>Скорость без лимитов</h3><p>Серверы 10 Гбит/с. YouTube 4K, стриминг без буфера.</p></div>
-    <div class="feat-card reveal"><div style="font-size:2rem;">📱</div><h3>До 10 устройств</h3><p>iPhone, Android, Windows, macOS, роутер. Настройка за минуту.</p></div>
-    <div class="feat-card reveal"><div style="font-size:2rem;">🔒</div><h3>Абсолютная анонимность</h3><p>No-log политика. Оплата криптой — полная анонимность.</p></div>
+    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">🛡️</span><h3>v2ray + XTLS</h3><p>Самый продвинутый протокол. Трафик выглядит как HTTPS — блокировки бессильны.</p></div>
+    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">⚡</span><h3>Скорость без лимитов</h3><p>Серверы 10 Гбит/с. YouTube 4K, стриминг без буфера.</p></div>
+    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">📱</span><h3>До 10 устройств</h3><p>iPhone, Android, Windows, macOS, роутер. Настройка за минуту.</p></div>
+    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">🔒</span><h3>Абсолютная анонимность</h3><p>No-log политика. Оплата криптой — полная анонимность.</p></div>
   </div>
 </section>
 
@@ -241,10 +263,10 @@
   <div class="section-tag reveal" style="justify-content:center">Простое подключение</div>
   <h2 class="reveal">Работает быстро</h2>
   <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:32px; margin-top:48px;">
-    <div><div style="font-size:3rem;">💳</div><h3>Оплати на сайте</h3><p>СБП или карта РФ через Т-Банк</p></div>
-    <div><div style="font-size:3rem;">🔗</div><h3>Получи ссылку VPN</h3><p>Сразу после оплаты на сайте</p></div>
-    <div><div style="font-size:3rem;">🚀</div><h3>Включи</h3><p>v2rayNG, Streisand и др.</p></div>
-    <div><div style="font-size:3rem;">🎉</div><h3>Всё работает</h3><p>Instagram, TikTok, YouTube</p></div>
+    <div><span class="how-emoji" aria-hidden="true">💳</span><h3>Оплати на сайте</h3><p>СБП или карта РФ через Т-Банк</p></div>
+    <div><span class="how-emoji" aria-hidden="true">🔗</span><h3>Получи ссылку VPN</h3><p>Сразу после оплаты на сайте</p></div>
+    <div><span class="how-emoji" aria-hidden="true">🚀</span><h3>Включи</h3><p>v2rayNG, Streisand и др.</p></div>
+    <div><span class="how-emoji" aria-hidden="true">🎉</span><h3>Всё работает</h3><p>Instagram, TikTok, YouTube</p></div>
   </div>
 </section>
 

@@ -1,13 +1,20 @@
 import { Link, router } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import { BrandMark } from "../../src/components/BrandMark";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Field } from "../../src/components/Field";
-import { GlassCard } from "../../src/components/GlassCard";
-import { GradientButton } from "../../src/components/GradientButton";
+import { NinaLogo } from "../../src/components/NinaLogo";
+import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
+import { GlassCard } from "../../src/components/GlassCard";
 import { useAuth } from "../../src/lib/auth";
-import { colors } from "../../src/lib/theme";
+import { colors, fonts, spacing } from "../../src/lib/theme";
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -35,9 +42,12 @@ export default function LoginScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <BrandMark size={40} />
-          <Text style={styles.headline}>Welcome to{"\n"}Unlimited Freedom.</Text>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          <NinaLogo size={28} />
+          <Text style={styles.headline}>Вход</Text>
           <Text style={styles.sub}>Войдите в кабинет NinaVPN</Text>
 
           <GlassCard style={{ gap: 12 }}>
@@ -57,7 +67,7 @@ export default function LoginScreen() {
               onChangeText={setPassword}
             />
             {!!error && <Text style={styles.error}>{error}</Text>}
-            <GradientButton label="Get Started" onPress={onSubmit} busy={busy} />
+            <PrimaryButton label="Продолжить" onPress={onSubmit} busy={busy} />
           </GlassCard>
 
           <Link href="/(auth)/register" style={styles.link}>
@@ -70,15 +80,30 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, padding: 24, paddingTop: 72, gap: 14, justifyContent: "center" },
-  headline: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 34,
-    marginTop: 8,
+  scroll: {
+    flexGrow: 1,
+    padding: spacing.xl,
+    paddingTop: 72,
+    gap: spacing.sm,
+    justifyContent: "center",
   },
-  sub: { color: colors.muted, marginBottom: 8 },
-  link: { color: colors.accentPink, textAlign: "center", marginTop: 8, fontWeight: "700" },
-  error: { color: colors.danger },
+  headline: {
+    fontFamily: fonts.display,
+    fontSize: 34,
+    letterSpacing: -0.8,
+    color: colors.text,
+    marginTop: spacing.md,
+  },
+  sub: {
+    fontFamily: fonts.body,
+    color: colors.muted,
+    marginBottom: spacing.sm,
+  },
+  link: {
+    color: colors.accent,
+    textAlign: "center",
+    marginTop: spacing.sm,
+    fontFamily: fonts.bodySemi,
+  },
+  error: { color: colors.danger, fontFamily: fonts.body },
 });

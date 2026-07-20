@@ -1,14 +1,14 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { BrandMark } from "../../src/components/BrandMark";
+import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { Field } from "../../src/components/Field";
 import { GlassCard } from "../../src/components/GlassCard";
-import { GradientButton } from "../../src/components/GradientButton";
+import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
+import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api, API_URL } from "../../src/lib/api";
 import { useAuth } from "../../src/lib/auth";
-import { colors } from "../../src/lib/theme";
+import { colors, fonts, spacing } from "../../src/lib/theme";
 
 type User = { id: string; email: string; tg_id?: number | null };
 
@@ -55,26 +55,34 @@ export default function AccountScreen() {
   return (
     <ScreenBackground>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <BrandMark size={26} />
-        <Text style={styles.title}>Settings</Text>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Text style={styles.back}>‹ Назад</Text>
+        </Pressable>
+        <NinaLogo size={24} />
+        <ScreenTitle>Аккаунт</ScreenTitle>
 
         <GlassCard style={{ gap: 6 }}>
-          <Text style={styles.section}>General</Text>
+          <Text style={styles.section}>Основные</Text>
           <Text style={styles.row}>Email: {user?.email}</Text>
           <Text style={styles.row}>
             Telegram: {user?.tg_id ? `id ${user.tg_id}` : "не привязан"}
           </Text>
         </GlassCard>
 
-        <GlassCard style={{ gap: 10 }}>
+        <GlassCard style={{ gap: 10, marginTop: spacing.md }}>
           <Text style={styles.section}>Telegram</Text>
           <Text style={styles.hint}>
-            В боте: /linkcabinet → вставьте код сюда. Уведомления о доступе придут в Telegram.
+            В боте: /linkcabinet → вставьте код сюда.
           </Text>
           {!user?.tg_id ? (
             <>
-              <Field placeholder="Код из бота" value={code} onChangeText={setCode} autoCapitalize="none" />
-              <GradientButton
+              <Field
+                placeholder="Код из бота"
+                value={code}
+                onChangeText={setCode}
+                autoCapitalize="none"
+              />
+              <PrimaryButton
                 label="Привязать"
                 onPress={link}
                 busy={busy}
@@ -82,31 +90,49 @@ export default function AccountScreen() {
               />
             </>
           ) : (
-            <GradientButton variant="ghost" label="Отвязать Telegram" onPress={unlink} busy={busy} />
+            <PrimaryButton
+              variant="secondary"
+              label="Отвязать Telegram"
+              onPress={unlink}
+              busy={busy}
+            />
           )}
           {!!msg && <Text style={styles.ok}>{msg}</Text>}
           {!!error && <Text style={styles.error}>{error}</Text>}
         </GlassCard>
 
-        <GlassCard style={{ gap: 10 }}>
-          <Text style={styles.section}>Support</Text>
-          <GradientButton variant="ghost" label="Написать в поддержку" onPress={() => router.push("/(app)/support")} />
+        <GlassCard style={{ gap: 10, marginTop: spacing.md }}>
+          <Text style={styles.section}>Поддержка</Text>
+          <PrimaryButton
+            variant="secondary"
+            label="Чат поддержки"
+            onPress={() => router.push("/(app)/support-chat")}
+          />
         </GlassCard>
 
         <Text style={styles.api}>API: {API_URL}</Text>
-        <GradientButton variant="ghost" label="Выйти" onPress={logout} />
+        <PrimaryButton variant="secondary" label="Выйти" onPress={logout} />
       </ScrollView>
     </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 20, paddingTop: 56, paddingBottom: 40, gap: 14 },
-  title: { color: colors.text, fontSize: 28, fontWeight: "900" },
-  section: { color: colors.text, fontWeight: "800", fontSize: 16 },
-  row: { color: colors.muted },
-  hint: { color: colors.muted, lineHeight: 20 },
-  ok: { color: colors.success },
-  error: { color: colors.danger },
-  api: { color: colors.muted, fontSize: 11 },
+  scroll: {
+    padding: spacing.screen,
+    paddingTop: 56,
+    paddingBottom: 100,
+    gap: 8,
+  },
+  back: { color: colors.accent, fontFamily: fonts.bodySemi, marginBottom: 8 },
+  section: {
+    color: colors.text,
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+  },
+  row: { color: colors.muted, fontFamily: fonts.body },
+  hint: { color: colors.muted, lineHeight: 20, fontFamily: fonts.body },
+  ok: { color: colors.success, fontFamily: fonts.body },
+  error: { color: colors.danger, fontFamily: fonts.body },
+  api: { color: colors.muted, fontSize: 11, fontFamily: fonts.body, marginTop: 12 },
 });

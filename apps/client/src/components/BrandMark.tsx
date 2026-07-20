@@ -1,48 +1,25 @@
-import { StyleSheet, Text } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { gradients } from "../lib/theme";
+import { StyleSheet, Text, View } from "react-native";
+import { colors, fonts } from "../lib/theme";
+import { NinaLogo } from "./NinaLogo";
 
-/** Brand wordmark like the mockup. */
+/** Brand wordmark — delegates to NinaLogo (site DNA). */
 export function BrandMark({ size = 34 }: { size?: number }) {
-  return (
-    <Text style={[styles.brand, { fontSize: size }]}>
-      NINA
-      <Text style={styles.vpn}>VPN</Text>
-    </Text>
-  );
+  return <NinaLogo size={size} />;
 }
 
 export function BrandGradientTitle({ children }: { children: string }) {
   return (
-    <LinearGradient
-      colors={[...gradients.brand]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={styles.gradWrap}
-    >
+    <View>
       <Text style={styles.gradText}>{children}</Text>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  brand: {
-    fontWeight: "900",
-    letterSpacing: -1,
-    color: "#fff",
-  },
-  vpn: {
-    color: "#F472B6",
-  },
-  gradWrap: {
-    alignSelf: "flex-start",
-    borderRadius: 8,
-    paddingHorizontal: 2,
-  },
   gradText: {
-    fontSize: 36,
-    fontWeight: "900",
-    color: "#fff",
-    letterSpacing: -1,
+    fontFamily: fonts.display,
+    fontSize: 34,
+    color: colors.text,
+    letterSpacing: -0.8,
   },
 });

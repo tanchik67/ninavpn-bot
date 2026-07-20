@@ -5,17 +5,17 @@ import { useFocusEffect, router } from "expo-router";
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View,
 } from "react-native";
-import { BrandMark } from "../../src/components/BrandMark";
+import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
 import { GlassCard } from "../../src/components/GlassCard";
-import { GradientButton } from "../../src/components/GradientButton";
+import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
-import { colors, radii } from "../../src/lib/theme";
+import { colors, fonts, radii, spacing } from "../../src/lib/theme";
 
 type Config = {
   subscription_url?: string;
@@ -54,15 +54,18 @@ export default function ConfigScreen() {
   return (
     <ScreenBackground>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <BrandMark size={26} />
-        <Text style={styles.title}>Config</Text>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Text style={styles.back}>‹ Назад</Text>
+        </Pressable>
+        <NinaLogo size={24} />
+        <ScreenTitle>Конфиг</ScreenTitle>
 
         {!cfg && !error ? (
-          <ActivityIndicator color={colors.accentPink} />
+          <ActivityIndicator color={colors.accent} />
         ) : !cfg ? (
-          <GlassCard>
+          <GlassCard style={{ gap: 12 }}>
             <Text style={styles.error}>{error}</Text>
-            <GradientButton label="К тарифам" onPress={() => router.push("/(app)/plans")} />
+            <PrimaryButton label="К тарифам" onPress={() => router.push("/(app)/plans")} />
           </GlassCard>
         ) : (
           <GlassCard style={{ gap: 12 }}>
@@ -76,7 +79,7 @@ export default function ConfigScreen() {
             <Text style={styles.url} selectable>
               {cfg.subscription_url || cfg.links[0]}
             </Text>
-            <GradientButton
+            <PrimaryButton
               label={copied ? "Скопировано" : "Копировать"}
               onPress={async () => {
                 const u = cfg.subscription_url || cfg.links[0];
@@ -89,9 +92,9 @@ export default function ConfigScreen() {
             />
             {Object.entries(cfg.deeplinks || {}).map(([name, link]) =>
               name === "raw" ? null : (
-                <GradientButton
+                <PrimaryButton
                   key={name}
-                  variant="ghost"
+                  variant="secondary"
                   label={`Открыть в ${name}`}
                   onPress={() => Linking.openURL(link)}
                 />
@@ -105,9 +108,18 @@ export default function ConfigScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 20, paddingTop: 56, gap: 14 },
-  title: { color: colors.text, fontSize: 28, fontWeight: "900" },
-  muted: { color: colors.muted },
+  scroll: {
+    padding: spacing.screen,
+    paddingTop: 56,
+    paddingBottom: 100,
+    gap: 14,
+  },
+  back: {
+    color: colors.accent,
+    fontFamily: fonts.bodySemi,
+    marginBottom: 8,
+  },
+  muted: { color: colors.muted, fontFamily: fonts.body },
   qr: {
     width: 200,
     height: 200,
@@ -115,6 +127,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: radii.md,
   },
-  url: { color: colors.text, fontSize: 12 },
-  error: { color: colors.danger, marginBottom: 12 },
+  url: { color: colors.text, fontSize: 12, fontFamily: fonts.body },
+  error: { color: colors.danger, marginBottom: 4, fontFamily: fonts.body },
 });

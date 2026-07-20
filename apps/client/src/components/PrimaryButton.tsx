@@ -14,10 +14,10 @@ type Props = {
   disabled?: boolean;
   busy?: boolean;
   style?: ViewStyle;
-  variant?: "primary" | "ghost";
+  variant?: "primary" | "secondary";
 };
 
-export function GradientButton({
+export function PrimaryButton({
   label,
   onPress,
   disabled,
@@ -25,17 +25,17 @@ export function GradientButton({
   style,
   variant = "primary",
 }: Props) {
-  if (variant === "ghost") {
+  if (variant === "secondary") {
     return (
       <Pressable
         onPress={onPress}
         disabled={disabled || busy}
-        style={[styles.ghost, style, (disabled || busy) && { opacity: 0.5 }]}
+        style={[styles.secondary, style, (disabled || busy) && { opacity: 0.5 }]}
       >
         {busy ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.ghostText}>{label}</Text>
+          <Text style={styles.secondaryText}>{label}</Text>
         )}
       </Pressable>
     );
@@ -47,12 +47,7 @@ export function GradientButton({
       disabled={disabled || busy}
       style={[style, (disabled || busy) && { opacity: 0.55 }]}
     >
-      <LinearGradient
-        colors={[...gradients.button]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.btn}
-      >
+      <LinearGradient colors={[...gradients.button]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
         {busy ? (
           <ActivityIndicator color="#fff" />
         ) : (
@@ -77,18 +72,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 16,
   },
-  ghost: {
+  secondary: {
+    backgroundColor: colors.glassFill,
     borderRadius: radii.pill,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    paddingVertical: 16,
     alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.glassBorder,
-    backgroundColor: colors.glassFill,
+    minHeight: 54,
+    justifyContent: "center",
   },
-  ghostText: {
+  secondaryText: {
     color: colors.text,
     fontFamily: fonts.bodyBold,
-    fontSize: 15,
+    fontSize: 16,
   },
 });

@@ -7,8 +7,6 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
-from config import settings
-
 log = logging.getLogger(__name__)
 router = Router()
 

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
-import { colors, radii } from "../lib/theme";
+import { colors, fonts, radii } from "../lib/theme";
 
 type Props = TextInputProps & { label?: string };
 
@@ -17,16 +17,21 @@ export function Field({ label, style, ...rest }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 6 },
-  label: { color: colors.muted, fontSize: 13, fontWeight: "600" },
+  wrap: { gap: 8 },
+  label: {
+    color: colors.muted,
+    fontSize: 13,
+    fontFamily: fonts.bodySemi,
+  },
   input: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: colors.glassFill,
     borderColor: colors.glassBorder,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,
     paddingHorizontal: 16,
     paddingVertical: 14,
     color: colors.text,
     fontSize: 16,
+    fontFamily: fonts.body,
   },
 });

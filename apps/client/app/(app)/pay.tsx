@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { BrandMark } from "../../src/components/BrandMark";
+import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
 import { GlassCard } from "../../src/components/GlassCard";
-import { GradientButton } from "../../src/components/GradientButton";
+import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
-import { colors } from "../../src/lib/theme";
+import { colors, fonts, spacing } from "../../src/lib/theme";
 
 type Checkout = { payment_id: number; payment_url: string; provider: string };
 type PayStatus = {
@@ -55,13 +55,15 @@ export default function PayScreen() {
           setStatus("Ошибка выдачи");
           return;
         }
-        setStatus(`Статус: ${s.payment_status}${s.provision_status ? ` · ${s.provision_status}` : ""}`);
+        setStatus(
+          `Статус: ${s.payment_status}${s.provision_status ? ` · ${s.provision_status}` : ""}`
+        );
       } catch {
         /* keep polling */
       }
       if (ticks >= 40) {
         stopPoll();
-        setStatus("Проверьте вкладку Home или поддержку");
+        setStatus("Проверьте главную или поддержку");
       }
     }, 2000);
   };
@@ -126,19 +128,29 @@ export default function PayScreen() {
   return (
     <ScreenBackground>
       <View style={styles.wrap}>
-        <BrandMark size={26} />
-        <Text style={styles.title}>Checkout</Text>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Text style={styles.back}>‹ Назад</Text>
+        </Pressable>
+        <NinaLogo size={24} />
+        <ScreenTitle>Оплата</ScreenTitle>
         <GlassCard style={{ gap: 12 }}>
           <Text style={styles.status}>{status}</Text>
           {!!provider && <Text style={styles.muted}>Провайдер: {provider}</Text>}
           {!!error && <Text style={styles.error}>{error}</Text>}
           {paymentId && provider === "mock" ? (
-            <GradientButton label="Подтвердить mock-оплату" onPress={confirmMock} busy={busy} />
+            <PrimaryButton
+              label="Подтвердить mock-оплату"
+              onPress={confirmMock}
+              busy={busy}
+            />
           ) : null}
           {paymentId && provider !== "mock" ? (
-            <GradientButton label="Проверить статус" onPress={() => pollUntilReady(paymentId)} />
+            <PrimaryButton
+              label="Проверить статус"
+              onPress={() => pollUntilReady(paymentId)}
+            />
           ) : null}
-          <GradientButton variant="ghost" label="Назад" onPress={() => router.back()} />
+          <PrimaryButton variant="secondary" label="Назад" onPress={() => router.back()} />
         </GlassCard>
       </View>
     </ScreenBackground>
@@ -146,9 +158,9 @@ export default function PayScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20, paddingTop: 56, gap: 14 },
-  title: { color: colors.text, fontSize: 28, fontWeight: "900" },
-  status: { color: colors.text, fontWeight: "600" },
-  muted: { color: colors.muted, fontSize: 13 },
-  error: { color: colors.danger },
+  wrap: { flex: 1, padding: spacing.screen, paddingTop: 56, gap: 14 },
+  back: { color: colors.accent, fontFamily: fonts.bodySemi },
+  status: { color: colors.text, fontFamily: fonts.bodySemi },
+  muted: { color: colors.muted, fontSize: 13, fontFamily: fonts.body },
+  error: { color: colors.danger, fontFamily: fonts.body },
 });

@@ -1,13 +1,14 @@
+import { router } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { FlatList, StyleSheet, Text, View } from "react-native";
-import { BrandMark } from "../../src/components/BrandMark";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Field } from "../../src/components/Field";
 import { GlassCard } from "../../src/components/GlassCard";
-import { GradientButton } from "../../src/components/GradientButton";
+import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
+import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
-import { colors } from "../../src/lib/theme";
+import { colors, fonts, spacing } from "../../src/lib/theme";
 
 type Ticket = {
   id: string;
@@ -56,8 +57,16 @@ export default function SupportScreen() {
   return (
     <ScreenBackground>
       <View style={styles.wrap}>
-        <BrandMark size={26} />
-        <Text style={styles.title}>Support</Text>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Text style={styles.back}>‹ Назад</Text>
+        </Pressable>
+        <NinaLogo size={24} />
+        <ScreenTitle>Поддержка</ScreenTitle>
+        <PrimaryButton
+          label="Открыть чат"
+          onPress={() => router.push("/(app)/support-chat")}
+          style={{ marginBottom: 12 }}
+        />
         <GlassCard style={{ gap: 10 }}>
           <Field placeholder="Тема" value={subject} onChangeText={setSubject} />
           <Field
@@ -68,13 +77,13 @@ export default function SupportScreen() {
             style={{ minHeight: 100, textAlignVertical: "top" }}
           />
           {!!error && <Text style={styles.error}>{error}</Text>}
-          <GradientButton label="Отправить" onPress={submit} busy={busy} />
+          <PrimaryButton label="Отправить тикет" onPress={submit} busy={busy} />
         </GlassCard>
         <FlatList
           data={tickets}
           keyExtractor={(t) => t.id}
           style={{ marginTop: 12 }}
-          contentContainerStyle={{ gap: 10, paddingBottom: 40 }}
+          contentContainerStyle={{ gap: 10, paddingBottom: 100 }}
           renderItem={({ item }) => (
             <GlassCard>
               <Text style={styles.cardTitle}>{item.subject}</Text>
@@ -89,10 +98,10 @@ export default function SupportScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20, paddingTop: 56 },
-  title: { color: colors.text, fontSize: 28, fontWeight: "900", marginBottom: 12 },
-  cardTitle: { color: colors.text, fontWeight: "800" },
-  muted: { color: colors.muted, marginTop: 4 },
-  body: { color: colors.text, marginTop: 8 },
-  error: { color: colors.danger },
+  wrap: { flex: 1, padding: spacing.screen, paddingTop: 56 },
+  back: { color: colors.accent, fontFamily: fonts.bodySemi, marginBottom: 8 },
+  cardTitle: { color: colors.text, fontFamily: fonts.bodyBold },
+  muted: { color: colors.muted, marginTop: 4, fontFamily: fonts.body },
+  body: { color: colors.text, marginTop: 8, fontFamily: fonts.body },
+  error: { color: colors.danger, fontFamily: fonts.body },
 });
