@@ -32,6 +32,8 @@ async def checkout(
             session,
             user=user,
             plan_key=body.plan_key,
+            months=body.months,
+            devices=body.devices,
             provider=body.provider,
             ip=client_ip(request),
         )

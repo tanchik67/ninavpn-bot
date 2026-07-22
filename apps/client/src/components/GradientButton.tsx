@@ -3,9 +3,9 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   ViewStyle,
 } from "react-native";
+import { AppText as Text } from "./AppText";
 import { colors, fonts, gradients, radii } from "../lib/theme";
 
 type Props = {

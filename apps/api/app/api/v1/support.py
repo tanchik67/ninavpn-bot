@@ -11,6 +11,7 @@ from apps.api.app.schemas import (
     SupportCreateRequest,
     SupportMessageOut,
     SupportReplyRequest,
+    SupportTicketAdminOut,
     SupportTicketOut,
 )
 from core.domain.enums import NotificationChannel, SupportTicketStatus, UserRole
@@ -22,6 +23,10 @@ from infrastructure.db.models import SupportMessage, SupportTicket, User
 router = APIRouter()
 
 _STAFF_ROLES = {UserRole.ADMIN.value, UserRole.SUPPORT.value}
+_ACTIVE_STATUSES = [
+    SupportTicketStatus.OPEN.value,
+    SupportTicketStatus.ANSWERED.value,
+]
 
 
 async def _notify_admin(text: str) -> None:
@@ -193,6 +198,80 @@ async def send_ticket_message(
         f"💬 Сообщение в поддержку\nfrom: {user.email}\n{body.body[:800]}"
     )
     return await _message_out(msg, user, ticket)
+
+
+@router.get("/admin/tickets", response_model=list[SupportTicketAdminOut])
+async def admin_list_tickets(
+    staff: AdminUser,
+    session: SessionDep,
+    include_closed: bool = False,
+):
+    q = select(SupportTicket).order_by(SupportTicket.created_at.desc())
+    if not include_closed:
+        q = q.where(SupportTicket.status.in_(_ACTIVE_STATUSES))
+    tickets = list(await session.scalars(q))
+    if not tickets:
+        return []
+
+    user_ids = {t.user_id for t in tickets}
+    users = {
+        u.id: u
+        for u in (await session.scalars(select(User).where(User.id.in_(user_ids)))).all()
+    }
+
+    out: list[SupportTicketAdminOut] = []
+    for ticket in tickets:
+        owner = users.get(ticket.user_id)
+        last = await session.scalar(
+            select(SupportMessage)
+            .where(SupportMessage.ticket_id == ticket.id)
+            .order_by(SupportMessage.created_at.desc())
+            .limit(1)
+        )
+        last_is_staff = False
+        if last:
+            author = await session.get(User, last.author_user_id)
+            last_is_staff = bool(author and author.role in _STAFF_ROLES)
+        out.append(
+            SupportTicketAdminOut(
+                id=ticket.id,
+                subject=ticket.subject,
+                body=ticket.body,
+                status=ticket.status,
+                created_at=ticket.created_at,
+                user_id=ticket.user_id,
+                user_email=owner.email if owner else "—",
+                last_message=(last.body[:200] if last else None),
+                last_message_at=(last.created_at if last else None),
+                last_is_staff=last_is_staff,
+            )
+        )
+    return out
+
+
+@router.get("/admin/tickets/{ticket_id}", response_model=SupportChatOut)
+async def admin_get_ticket(
+    ticket_id: UUID,
+    staff: AdminUser,
+    session: SessionDep,
+):
+    ticket = await session.get(SupportTicket, ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="not_found")
+    messages = await _load_messages(session, ticket)
+    return SupportChatOut(ticket=ticket, messages=messages)
+
+
+@router.get("/admin/tickets/{ticket_id}/messages", response_model=list[SupportMessageOut])
+async def admin_list_messages(
+    ticket_id: UUID,
+    staff: AdminUser,
+    session: SessionDep,
+):
+    ticket = await session.get(SupportTicket, ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="not_found")
+    return await _load_messages(session, ticket)
 
 
 @router.post("/admin/tickets/{ticket_id}/messages", response_model=SupportMessageOut)

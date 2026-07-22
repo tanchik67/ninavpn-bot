@@ -1,4 +1,5 @@
-import { router } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { goBackOr } from "../../src/lib/nav";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
@@ -7,12 +8,14 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
+import { AppText as Text, AppTextInput as TextInput } from "../../src/components/AppText";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
+import { useAuth } from "../../src/lib/auth";
+import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, radii, spacing } from "../../src/lib/theme";
 
 type Message = {
@@ -27,26 +30,52 @@ type Chat = {
   messages: Message[];
 };
 
+function isStaffRole(role?: string) {
+  return role === "admin" || role === "support";
+}
+
 export default function SupportChatScreen() {
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { t } = useI18n();
+  const params = useLocalSearchParams<{ ticketId?: string; email?: string }>();
+  const ticketIdParam = Array.isArray(params.ticketId)
+    ? params.ticketId[0]
+    : params.ticketId;
+  const emailParam = Array.isArray(params.email) ? params.email[0] : params.email;
+
+  const staff = isStaffRole(user?.role);
+  const staffMode = staff && !!ticketIdParam;
+
   const [chat, setChat] = useState<Chat | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const listRef = useRef<FlatList>(null);
+  // Stack screen (no tab dock) — only keep home-indicator inset
+  const inputBottomPad = Math.max(insets.bottom, 8);
 
   const load = useCallback(async () => {
+    if (staffMode && ticketIdParam) {
+      const data = await api<Chat>(
+        `/api/v1/support/admin/tickets/${ticketIdParam}`
+      );
+      setChat(data);
+      return;
+    }
     const data = await api<Chat>("/api/v1/support/chat");
     setChat(data);
-  }, []);
+  }, [staffMode, ticketIdParam]);
 
   useFocusEffect(
     useCallback(() => {
-      load().catch(() => setError("Не удалось загрузить чат"));
+      if (staff && !ticketIdParam) return;
+      load().catch(() => setError(t("supportChat.errorLoad")));
       const timer = setInterval(() => {
         load().catch(() => {});
       }, 8000);
       return () => clearInterval(timer);
-    }, [load])
+    }, [load, staff, ticketIdParam, t])
   );
 
   useEffect(() => {
@@ -55,29 +84,37 @@ export default function SupportChatScreen() {
     }
   }, [chat?.messages.length]);
 
+  if (staff && !ticketIdParam) {
+    return <Redirect href="/(app)/admin-inbox" />;
+  }
+
   const send = async () => {
     const body = text.trim();
     if (!body || !chat || sending) return;
     setSending(true);
     setError("");
     try {
-      const msg = await api<Message>(
-        `/api/v1/support/tickets/${chat.ticket.id}/messages`,
-        {
-          method: "POST",
-          body: JSON.stringify({ body }),
-        }
-      );
+      const path = staffMode
+        ? `/api/v1/support/admin/tickets/${chat.ticket.id}/messages`
+        : `/api/v1/support/tickets/${chat.ticket.id}/messages`;
+      const msg = await api<Message>(path, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      });
       setText("");
       setChat((prev) =>
         prev ? { ...prev, messages: [...prev.messages, msg] } : prev
       );
     } catch (e: any) {
-      setError(e?.message || "Не удалось отправить");
+      setError(e?.message || t("supportChat.errorSend"));
     } finally {
       setSending(false);
     }
   };
+
+  const title = staffMode
+    ? emailParam || t("supportChat.titleClient")
+    : t("supportChat.title");
 
   return (
     <ScreenBackground>
@@ -87,10 +124,12 @@ export default function SupportChatScreen() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text style={styles.back}>‹ Назад</Text>
+          <Pressable onPress={() => goBackOr("/(app)/(tabs)/settings")} hitSlop={12}>
+            <Text style={styles.back}>{t("common.back")}</Text>
           </Pressable>
-          <Text style={styles.title}>Поддержка</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
           <View style={{ width: 64 }} />
         </View>
 
@@ -98,7 +137,7 @@ export default function SupportChatScreen() {
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>💬</Text>
             <Text style={styles.emptyText}>
-              Напишите сообщение — ответим в этом чате
+              {staffMode ? t("supportChat.emptyStaff") : t("supportChat.emptyUser")}
             </Text>
           </View>
         ) : (
@@ -106,32 +145,43 @@ export default function SupportChatScreen() {
             ref={listRef}
             data={chat?.messages ?? []}
             keyExtractor={(m) => m.id}
-            contentContainerStyle={styles.messages}
-            renderItem={({ item }) => (
-              <View
-                style={[
-                  styles.bubble,
-                  item.is_staff ? styles.bubbleStaff : styles.bubbleUser,
-                ]}
-              >
-                <Text style={styles.bubbleText}>{item.body}</Text>
-                <Text style={styles.time}>
-                  {new Date(item.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              </View>
-            )}
+            contentContainerStyle={[styles.messages, { paddingBottom: 16 }]}
+            renderItem={({ item }) => {
+              const mine = staffMode ? item.is_staff : !item.is_staff;
+              return (
+                <View
+                  style={[
+                    styles.bubble,
+                    mine ? styles.bubbleMine : styles.bubbleTheirs,
+                  ]}
+                >
+                  {staffMode && !mine && (
+                    <Text style={styles.author}>{t("supportChat.authorClient")}</Text>
+                  )}
+                  {staffMode && mine && (
+                    <Text style={styles.author}>{t("supportChat.authorYou")}</Text>
+                  )}
+                  <Text style={styles.bubbleText}>{item.body}</Text>
+                  <Text style={styles.time}>
+                    {new Date(item.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Text>
+                </View>
+              );
+            }}
           />
         )}
 
         {!!error && <Text style={styles.error}>{error}</Text>}
 
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { paddingBottom: inputBottomPad }]}>
           <TextInput
             style={styles.input}
-            placeholder="Сообщение..."
+            placeholder={
+              staffMode ? t("supportChat.placeholderStaff") : t("supportChat.placeholderUser")
+            }
             placeholderTextColor={colors.muted}
             value={text}
             onChangeText={setText}
@@ -170,6 +220,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 17,
     fontFamily: fonts.displayBold,
+    flex: 1,
+    textAlign: "center",
   },
   empty: { flex: 1, justifyContent: "center", paddingHorizontal: 32, alignItems: "center" },
   emptyEmoji: { fontSize: 32, marginBottom: 12 },
@@ -186,17 +238,23 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     marginBottom: 4,
   },
-  bubbleUser: {
+  bubbleMine: {
     alignSelf: "flex-end",
     backgroundColor: colors.accent,
     borderBottomRightRadius: 4,
   },
-  bubbleStaff: {
+  bubbleTheirs: {
     alignSelf: "flex-start",
     backgroundColor: colors.glassFill,
     borderBottomLeftRadius: 4,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.glassBorder,
+  },
+  author: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 10,
+    marginBottom: 4,
+    fontFamily: fonts.bodySemi,
   },
   bubbleText: {
     color: colors.text,

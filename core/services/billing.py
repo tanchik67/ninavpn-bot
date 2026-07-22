@@ -63,6 +63,51 @@ async def get_plan_by_key(session: AsyncSession, plan_key: str) -> Optional[Plan
     return await session.scalar(select(Plan).where(Plan.plan_key == plan_key, Plan.is_active.is_(True)))
 
 
+async def resolve_checkout_plan_row(
+    session: AsyncSession,
+    *,
+    plan_key: Optional[str] = None,
+    months: Optional[int] = None,
+    devices: Optional[int] = None,
+) -> Plan:
+    """Resolve preset or custom constructor plan; ensure Plan row exists for payment FK."""
+    from core.services.plan_pricing import resolve_plan_spec
+
+    try:
+        if plan_key and not str(plan_key).startswith("custom_"):
+            plan = await get_plan_by_key(session, plan_key.strip())
+            if plan:
+                return plan
+        key, m, d, rub = resolve_plan_spec(plan_key=plan_key, months=months, devices=devices)
+    except ValueError as e:
+        raise BillingError(str(e) or "plan_not_found")
+
+    plan = await session.scalar(select(Plan).where(Plan.plan_key == key))
+    if plan:
+        plan.months = m
+        plan.devices = d
+        plan.price_rub = rub
+        plan.name = f"{m} мес · {d} устр."
+        plan.description = f"Конструктор · {m} мес · {d} устр."
+        plan.is_active = True
+        await session.flush()
+        return plan
+
+    plan = Plan(
+        plan_key=key,
+        name=f"{m} мес · {d} устр.",
+        description=f"Конструктор · {m} мес · {d} устр.",
+        months=m,
+        devices=d,
+        price_rub=rub,
+        is_active=True,
+        sort_order=100 + m,
+    )
+    session.add(plan)
+    await session.flush()
+    return plan
+
+
 def _public_base() -> str:
     base = (saas_settings.SAAS_PUBLIC_BASE_URL or "http://localhost:8000").rstrip("/")
     return base
@@ -72,13 +117,15 @@ async def create_checkout(
     session: AsyncSession,
     *,
     user: User,
-    plan_key: str,
+    plan_key: Optional[str] = None,
+    months: Optional[int] = None,
+    devices: Optional[int] = None,
     provider: Optional[str] = None,
     ip: Optional[str] = None,
 ) -> tuple[Payment, str]:
-    plan = await get_plan_by_key(session, plan_key)
-    if not plan:
-        raise BillingError("plan_not_found", "Plan not found")
+    plan = await resolve_checkout_plan_row(
+        session, plan_key=plan_key, months=months, devices=devices
+    )
 
     gateway = get_payment_gateway(provider)
     idem = secrets.token_hex(16)
@@ -120,7 +167,12 @@ async def create_checkout(
         entity_id=str(payment.id),
         actor_user_id=user.id,
         ip=ip,
-        meta={"plan_key": plan_key, "provider": gateway.name},
+        meta={
+            "plan_key": plan.plan_key,
+            "months": plan.months,
+            "devices": plan.devices,
+            "provider": gateway.name,
+        },
     )
     await session.commit()
     await session.refresh(payment)

@@ -41,6 +41,14 @@ class SaasSettings(BaseSettings):
     BOT_TOKEN: Optional[str] = None
     ADMIN_ID: Optional[int] = None
     ADMIN_IDS: Optional[str] = None
+    # Comma-separated emails promoted to admin on login/me
+    ADMIN_EMAILS: str = ""
+
+    # OAuth — Google ID token audiences (comma-separated client IDs)
+    GOOGLE_CLIENT_IDS: str = ""
+    # Telegram Login Widget: max age of auth_date (seconds)
+    TELEGRAM_AUTH_MAX_AGE_SEC: int = 86400
+    TELEGRAM_BOT_USERNAME: Optional[str] = None
 
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587

@@ -1,13 +1,15 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { ScreenTitle } from "../../src/components/NinaLogo";
-import { GlassCard } from "../../src/components/GlassCard";
-import { PrimaryButton } from "../../src/components/PrimaryButton";
-import { AppleSwitch } from "../../src/components/AppleSwitch";
-import { ScreenBackground } from "../../src/components/ScreenBackground";
-import { useAuth } from "../../src/lib/auth";
-import { colors, fonts, spacing } from "../../src/lib/theme";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { AppText as Text } from "../../../src/components/AppText";
+import { ScreenTitle } from "../../../src/components/NinaLogo";
+import { GlassCard } from "../../../src/components/GlassCard";
+import { PrimaryButton } from "../../../src/components/PrimaryButton";
+import { AppleSwitch } from "../../../src/components/AppleSwitch";
+import { ScreenBackground } from "../../../src/components/ScreenBackground";
+import { useAuth } from "../../../src/lib/auth";
+import { useI18n } from "../../../src/lib/i18n";
+import { colors, fonts, spacing } from "../../../src/lib/theme";
 
 function SettingToggle({
   label,
@@ -46,11 +48,12 @@ function SettingLink({
 }
 
 export default function SettingsScreen() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const { t } = useI18n();
+  const isStaff = user?.role === "admin" || user?.role === "support";
   const [autoConnect, setAutoConnect] = useState(false);
   const [killSwitch, setKillSwitch] = useState(true);
   const [lanAccess, setLanAccess] = useState(false);
-  const [protocol, setProtocol] = useState(true);
 
   return (
     <ScreenBackground>
@@ -58,57 +61,76 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        <ScreenTitle>Настройки</ScreenTitle>
+        <ScreenTitle>{t("settings.title")}</ScreenTitle>
 
         <Text style={styles.section}>
           <Text style={styles.emoji}>⚙️ </Text>
-          Основные
+          {t("settings.general")}
         </Text>
         <GlassCard padded={false}>
-          <SettingLink label="Язык" />
-          <SettingLink label="Размер текста" last />
+          <SettingLink
+            label={t("settings.language")}
+            onPress={() => router.push("/(app)/language")}
+          />
+          <SettingLink
+            label={t("settings.textSize")}
+            onPress={() => router.push("/(app)/text-size")}
+            last
+          />
         </GlassCard>
 
         <Text style={styles.section}>
           <Text style={styles.emoji}>🛡️ </Text>
-          VPN
+          {t("settings.vpn")}
         </Text>
         <GlassCard padded={false}>
           <SettingToggle
-            label="Автоподключение"
+            label={t("settings.autoConnect")}
             value={autoConnect}
             onChange={setAutoConnect}
           />
-          <SettingToggle label="Kill switch" value={killSwitch} onChange={setKillSwitch} />
-          <SettingToggle label="Доступ к LAN" value={lanAccess} onChange={setLanAccess} />
           <SettingToggle
-            label="Предпочтения протокола"
-            value={protocol}
-            onChange={setProtocol}
+            label={t("settings.killSwitch")}
+            value={killSwitch}
+            onChange={setKillSwitch}
+          />
+          <SettingToggle
+            label={t("settings.lanAccess")}
+            value={lanAccess}
+            onChange={setLanAccess}
             last
           />
         </GlassCard>
 
         <Text style={styles.section}>
           <Text style={styles.emoji}>✨ </Text>
-          Ещё
+          {t("settings.more")}
         </Text>
         <GlassCard padded={false}>
-          <SettingLink label="Расширенные" />
-          <SettingLink label="Статистика" />
-          <SettingLink label="FAQ" />
-          <SettingLink label="О приложении" last />
+          <SettingLink label={t("settings.advanced")} />
+          <SettingLink label={t("settings.stats")} />
+          <SettingLink label={t("settings.faq")} />
+          <SettingLink label={t("settings.about")} last />
         </GlassCard>
 
-        <PrimaryButton
-          label="Обратиться в поддержку"
-          variant="secondary"
-          onPress={() => router.push("/(app)/support-chat")}
-          style={{ marginTop: spacing.lg }}
-        />
+        {isStaff ? (
+          <PrimaryButton
+            label={t("support.staffChats")}
+            variant="secondary"
+            onPress={() => router.push("/(app)/admin-inbox")}
+            style={{ marginTop: spacing.lg }}
+          />
+        ) : (
+          <PrimaryButton
+            label={t("settings.contactSupport")}
+            variant="secondary"
+            onPress={() => router.push("/(app)/support-chat")}
+            style={{ marginTop: spacing.lg }}
+          />
+        )}
 
         <PrimaryButton
-          label="Выйти"
+          label={t("common.logout")}
           variant="secondary"
           onPress={logout}
           style={{ marginTop: spacing.sm, marginBottom: spacing.md }}

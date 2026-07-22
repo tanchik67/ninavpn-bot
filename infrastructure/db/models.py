@@ -44,7 +44,8 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=_uuid)
     email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    google_sub: Mapped[Optional[str]] = mapped_column(String(128), unique=True, nullable=True, index=True)
     tg_id: Mapped[Optional[int]] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
     # Stable numeric key for 3x-ui / Marzban client identity
     panel_user_key: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False, index=True)
@@ -55,6 +56,12 @@ class User(Base):
     )
     email_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Optional emoji next to display name (Telegram-style status)
+    profile_emoji: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+
+    @property
+    def has_password(self) -> bool:
+        return bool(self.password_hash)
 
     subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="user")
     payments: Mapped[list["Payment"]] = relationship(back_populates="user")

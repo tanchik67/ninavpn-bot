@@ -1,4 +1,5 @@
-import { Platform, StyleSheet, Text, TextStyle, View } from "react-native";
+import { Platform, StyleSheet, TextStyle, View } from "react-native";
+import { AppText as Text } from "./AppText";
 import { colors, fonts } from "../lib/theme";
 
 /** Site wordmark: gradient NINA + cyan VPN. */

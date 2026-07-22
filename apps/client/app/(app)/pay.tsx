@@ -1,12 +1,15 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { goBackOr } from "../../src/lib/nav";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { AppText as Text } from "../../src/components/AppText";
 import * as WebBrowser from "expo-web-browser";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
 import { GlassCard } from "../../src/components/GlassCard";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
+import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, spacing } from "../../src/lib/theme";
 
 type Checkout = { payment_id: number; payment_url: string; provider: string };
@@ -20,13 +23,25 @@ type PayStatus = {
 };
 
 export default function PayScreen() {
-  const params = useLocalSearchParams<{ plan_key?: string; payment_url?: string }>();
-  const [status, setStatus] = useState("Готовим оплату…");
+  const params = useLocalSearchParams<{
+    plan_key?: string;
+    months?: string;
+    devices?: string;
+    payment_url?: string;
+  }>();
+  const { t } = useI18n();
+  const [status, setStatus] = useState("");
   const [paymentId, setPaymentId] = useState<number | null>(null);
   const [provider, setProvider] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const polling = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tRef = useRef(t);
+  tRef.current = t;
+
+  useEffect(() => {
+    setStatus(t("pay.statusPreparing"));
+  }, [t]);
 
   const stopPoll = () => {
     if (polling.current) {
@@ -37,7 +52,7 @@ export default function PayScreen() {
 
   const pollUntilReady = (id: number) => {
     stopPoll();
-    setStatus("Ожидаем выдачу доступа…");
+    setStatus(tRef.current("pay.statusProvisioning"));
     let ticks = 0;
     polling.current = setInterval(async () => {
       ticks += 1;
@@ -45,25 +60,28 @@ export default function PayScreen() {
         const s = await api<PayStatus>(`/api/v1/payments/${id}/status`);
         if (s.ready) {
           stopPoll();
-          setStatus("Готово!");
-          router.replace("/(app)/home");
+          setStatus(tRef.current("pay.statusReady"));
+          router.replace("/(app)/(tabs)/home");
           return;
         }
         if (s.provision_status === "failed") {
           stopPoll();
-          setError(s.provision_error || "Ошибка выдачи VPN");
-          setStatus("Ошибка выдачи");
+          setError(s.provision_error || tRef.current("pay.errorProvision"));
+          setStatus(tRef.current("pay.statusProvisionFailed"));
           return;
         }
         setStatus(
-          `Статус: ${s.payment_status}${s.provision_status ? ` · ${s.provision_status}` : ""}`
+          tRef.current("pay.statusDetail", {
+            payment: s.payment_status,
+            provision: s.provision_status || "",
+          })
         );
       } catch {
         /* keep polling */
       }
       if (ticks >= 40) {
         stopPoll();
-        setStatus("Проверьте главную или поддержку");
+        setStatus(tRef.current("pay.statusTimeout"));
       }
     }, 2000);
   };
@@ -75,31 +93,35 @@ export default function PayScreen() {
       try {
         if (params.payment_url) {
           await WebBrowser.openBrowserAsync(String(params.payment_url));
-          setStatus("Завершите оплату в браузере");
+          setStatus(tRef.current("pay.statusFinishBrowser"));
           return;
         }
-        if (!params.plan_key) {
-          setError("Не выбран тариф");
+        if (!params.plan_key && !(params.months && params.devices)) {
+          setError(tRef.current("pay.errorNoPlan"));
           return;
         }
+        const body: Record<string, string | number> = {};
+        if (params.plan_key) body.plan_key = String(params.plan_key);
+        if (params.months) body.months = Number(params.months);
+        if (params.devices) body.devices = Number(params.devices);
         const checkout = await api<Checkout>("/api/v1/payments/checkout", {
           method: "POST",
-          body: JSON.stringify({ plan_key: params.plan_key }),
+          body: JSON.stringify(body),
         });
         setPaymentId(checkout.payment_id);
         setProvider(checkout.provider);
         if (checkout.provider === "mock") {
-          setStatus("Тестовая оплата (mock)");
+          setStatus(tRef.current("pay.statusMock"));
         } else {
           await WebBrowser.openBrowserAsync(checkout.payment_url);
-          setStatus("Оплатите в браузере");
+          setStatus(tRef.current("pay.statusPayBrowser"));
           pollUntilReady(checkout.payment_id);
         }
       } catch (e: any) {
-        setError(e?.message || "Ошибка checkout");
+        setError(e?.message || tRef.current("pay.errorCheckout"));
       }
     })();
-  }, [params.plan_key, params.payment_url]);
+  }, [params.plan_key, params.months, params.devices, params.payment_url]);
 
   const confirmMock = async () => {
     if (!paymentId) return;
@@ -110,16 +132,16 @@ export default function PayScreen() {
         method: "POST",
       });
       if (s.ready) {
-        router.replace("/(app)/home");
+        router.replace("/(app)/(tabs)/home");
         return;
       }
       if (s.provision_status === "failed") {
-        setError(s.provision_error || "Ошибка выдачи");
+        setError(s.provision_error || t("pay.errorProvision"));
         return;
       }
       pollUntilReady(paymentId);
     } catch (e: any) {
-      setError(e?.message || "confirm failed");
+      setError(e?.message || t("pay.errorConfirm"));
     } finally {
       setBusy(false);
     }
@@ -128,29 +150,35 @@ export default function PayScreen() {
   return (
     <ScreenBackground>
       <View style={styles.wrap}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Назад</Text>
+        <Pressable onPress={() => goBackOr("/(app)/(tabs)/home")} hitSlop={12}>
+          <Text style={styles.back}>{t("common.back")}</Text>
         </Pressable>
         <NinaLogo size={24} />
-        <ScreenTitle>Оплата</ScreenTitle>
+        <ScreenTitle>{t("pay.title")}</ScreenTitle>
         <GlassCard style={{ gap: 12 }}>
           <Text style={styles.status}>{status}</Text>
-          {!!provider && <Text style={styles.muted}>Провайдер: {provider}</Text>}
+          {!!provider && (
+            <Text style={styles.muted}>{t("pay.provider", { provider })}</Text>
+          )}
           {!!error && <Text style={styles.error}>{error}</Text>}
           {paymentId && provider === "mock" ? (
             <PrimaryButton
-              label="Подтвердить mock-оплату"
+              label={t("pay.confirmMock")}
               onPress={confirmMock}
               busy={busy}
             />
           ) : null}
           {paymentId && provider !== "mock" ? (
             <PrimaryButton
-              label="Проверить статус"
+              label={t("pay.checkStatus")}
               onPress={() => pollUntilReady(paymentId)}
             />
           ) : null}
-          <PrimaryButton variant="secondary" label="Назад" onPress={() => router.back()} />
+          <PrimaryButton
+            variant="secondary"
+            label={t("common.backPlain")}
+            onPress={() => goBackOr("/(app)/(tabs)/home")}
+          />
         </GlassCard>
       </View>
     </ScreenBackground>

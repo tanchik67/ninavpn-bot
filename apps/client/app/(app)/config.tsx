@@ -2,19 +2,21 @@ import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useCallback, useState } from "react";
 import { useFocusEffect, router } from "expo-router";
+import { goBackOr } from "../../src/lib/nav";
 import {
   ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
 } from "react-native";
+import { AppText as Text } from "../../src/components/AppText";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
 import { GlassCard } from "../../src/components/GlassCard";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
+import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, radii, spacing } from "../../src/lib/theme";
 
 type Config = {
@@ -27,6 +29,7 @@ type Config = {
 };
 
 export default function ConfigScreen() {
+  const { t } = useI18n();
   const [cfg, setCfg] = useState<Config | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -41,35 +44,38 @@ export default function ConfigScreen() {
         } catch {
           if (alive) {
             setCfg(null);
-            setError("Конфиг пока недоступен — оплатите тариф.");
+            setError(t("config.unavailable"));
           }
         }
       })();
       return () => {
         alive = false;
       };
-    }, [])
+    }, [t])
   );
 
   return (
     <ScreenBackground>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Назад</Text>
+        <Pressable onPress={() => goBackOr("/(app)/(tabs)/home")} hitSlop={12}>
+          <Text style={styles.back}>{t("common.back")}</Text>
         </Pressable>
         <NinaLogo size={24} />
-        <ScreenTitle>Конфиг</ScreenTitle>
+        <ScreenTitle>{t("config.title")}</ScreenTitle>
 
         {!cfg && !error ? (
           <ActivityIndicator color={colors.accent} />
         ) : !cfg ? (
           <GlassCard style={{ gap: 12 }}>
             <Text style={styles.error}>{error}</Text>
-            <PrimaryButton label="К тарифам" onPress={() => router.push("/(app)/plans")} />
+            <PrimaryButton
+              label={t("config.toPlans")}
+              onPress={() => router.push("/(app)/plans")}
+            />
           </GlassCard>
         ) : (
           <GlassCard style={{ gap: 12 }}>
-            <Text style={styles.muted}>Статус: {cfg.status}</Text>
+            <Text style={styles.muted}>{t("config.status", { status: cfg.status })}</Text>
             {cfg.qr_base64 ? (
               <Image
                 source={{ uri: `data:image/png;base64,${cfg.qr_base64}` }}
@@ -80,7 +86,7 @@ export default function ConfigScreen() {
               {cfg.subscription_url || cfg.links[0]}
             </Text>
             <PrimaryButton
-              label={copied ? "Скопировано" : "Копировать"}
+              label={copied ? t("config.copied") : t("config.copy")}
               onPress={async () => {
                 const u = cfg.subscription_url || cfg.links[0];
                 if (u) {
@@ -95,7 +101,7 @@ export default function ConfigScreen() {
                 <PrimaryButton
                   key={name}
                   variant="secondary"
-                  label={`Открыть в ${name}`}
+                  label={t("config.openIn", { name })}
                   onPress={() => Linking.openURL(link)}
                 />
               )

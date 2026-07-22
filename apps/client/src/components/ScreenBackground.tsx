@@ -2,15 +2,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ReactNode } from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
 import { colors, gradients } from "../lib/theme";
+import { ScreenFade } from "./ScreenFade";
 
-type Props = { children: ReactNode; style?: ViewStyle };
+type Props = { children: ReactNode; style?: ViewStyle; fade?: boolean };
 
-export function ScreenBackground({ children, style }: Props) {
+export function ScreenBackground({ children, style, fade = true }: Props) {
+  const body = fade ? <ScreenFade>{children}</ScreenFade> : children;
   return (
     <View style={[styles.root, style]}>
       <LinearGradient colors={[...gradients.screen]} style={StyleSheet.absoluteFill} />
       <View style={styles.ambient} pointerEvents="none" />
-      <View style={styles.content}>{children}</View>
+      <View style={styles.content}>{body}</View>
     </View>
   );
 }

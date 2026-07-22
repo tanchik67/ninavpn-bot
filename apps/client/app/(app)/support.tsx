@@ -1,13 +1,16 @@
 import { router } from "expo-router";
+import { goBackOr } from "../../src/lib/nav";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { AppText as Text } from "../../src/components/AppText";
 import { Field } from "../../src/components/Field";
 import { GlassCard } from "../../src/components/GlassCard";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
+import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, spacing } from "../../src/lib/theme";
 
 type Ticket = {
@@ -19,6 +22,7 @@ type Ticket = {
 };
 
 export default function SupportScreen() {
+  const { t } = useI18n();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -32,8 +36,8 @@ export default function SupportScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load().catch(() => setError("Не удалось загрузить обращения"));
-    }, [load])
+      load().catch(() => setError(t("support.errorLoad")));
+    }, [load, t])
   );
 
   const submit = async () => {
@@ -48,7 +52,7 @@ export default function SupportScreen() {
       setBody("");
       await load();
     } catch (e: any) {
-      setError(e?.message || "Ошибка отправки");
+      setError(e?.message || t("support.errorSend"));
     } finally {
       setBusy(false);
     }
@@ -57,31 +61,35 @@ export default function SupportScreen() {
   return (
     <ScreenBackground>
       <View style={styles.wrap}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Назад</Text>
+        <Pressable onPress={() => goBackOr("/(app)/(tabs)/settings")} hitSlop={12}>
+          <Text style={styles.back}>{t("common.back")}</Text>
         </Pressable>
         <NinaLogo size={24} />
-        <ScreenTitle>Поддержка</ScreenTitle>
+        <ScreenTitle>{t("support.title")}</ScreenTitle>
         <PrimaryButton
-          label="Открыть чат"
+          label={t("support.openChat")}
           onPress={() => router.push("/(app)/support-chat")}
           style={{ marginBottom: 12 }}
         />
         <GlassCard style={{ gap: 10 }}>
-          <Field placeholder="Тема" value={subject} onChangeText={setSubject} />
           <Field
-            placeholder="Опишите проблему"
+            placeholder={t("support.subjectPlaceholder")}
+            value={subject}
+            onChangeText={setSubject}
+          />
+          <Field
+            placeholder={t("support.bodyPlaceholder")}
             value={body}
             onChangeText={setBody}
             multiline
             style={{ minHeight: 100, textAlignVertical: "top" }}
           />
           {!!error && <Text style={styles.error}>{error}</Text>}
-          <PrimaryButton label="Отправить тикет" onPress={submit} busy={busy} />
+          <PrimaryButton label={t("support.submitTicket")} onPress={submit} busy={busy} />
         </GlassCard>
         <FlatList
           data={tickets}
-          keyExtractor={(t) => t.id}
+          keyExtractor={(tkt) => tkt.id}
           style={{ marginTop: 12 }}
           contentContainerStyle={{ gap: 10, paddingBottom: 100 }}
           renderItem={({ item }) => (

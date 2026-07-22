@@ -8,11 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.domain.enums import UserRole
 from core.services.security import decode_access_token
+from core.settings import saas_settings
 from infrastructure.db.base import get_session
 from infrastructure.db.models import User
 
 bearer = HTTPBearer(auto_error=False)
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+def _admin_emails() -> set[str]:
+    return {
+        e.strip().lower()
+        for e in (saas_settings.ADMIN_EMAILS or "").split(",")
+        if e.strip()
+    }
 
 
 async def get_current_user(
@@ -29,6 +38,15 @@ async def get_current_user(
     user = await session.get(User, user_id)
     if not user or user.is_banned:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")
+    # Promote configured emails to admin (cabinet support inbox)
+    if (
+        user.email
+        and user.email.lower() in _admin_emails()
+        and user.role != UserRole.ADMIN.value
+    ):
+        user.role = UserRole.ADMIN.value
+        await session.commit()
+        await session.refresh(user)
     return user
 
 

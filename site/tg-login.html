@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Вход через Telegram — NinaVPN</title>
+  <style>
+    :root {
+      --bg: #060608;
+      --text: #F0EEFF;
+      --muted: #6B6B8A;
+      --accent: #7B2FFF;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 32px 20px;
+      text-align: center;
+      gap: 20px;
+    }
+    h1 { font-size: 1.35rem; font-weight: 700; }
+    p { color: var(--muted); font-size: 0.95rem; max-width: 320px; line-height: 1.45; }
+    #widget { margin-top: 12px; min-height: 48px; }
+    .err { color: #ff6b8a; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>NinaVPN</h1>
+  <p>Войдите через Telegram, чтобы открыть кабинет</p>
+  <div id="widget"></div>
+  <p class="err" id="err" hidden></p>
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var bot = params.get("bot") || "";
+      var redirect = params.get("redirect") || "";
+      var errEl = document.getElementById("err");
+
+      if (!bot) {
+        errEl.hidden = false;
+        errEl.textContent = "Не указан бот (?bot=username)";
+        return;
+      }
+
+      window.onTelegramAuth = function (user) {
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage({ type: "tg-auth", user: user }, "*");
+            window.close();
+            return;
+          }
+        } catch (e) {}
+
+        if (redirect) {
+          var q = new URLSearchParams();
+          Object.keys(user).forEach(function (k) {
+            if (user[k] != null && user[k] !== "") q.set(k, String(user[k]));
+          });
+          var sep = redirect.indexOf("?") >= 0 ? "&" : "?";
+          location.href = redirect + sep + q.toString();
+          return;
+        }
+
+        errEl.hidden = false;
+        errEl.textContent = "Вход выполнен. Можно закрыть окно.";
+      };
+
+      var s = document.createElement("script");
+      s.async = true;
+      s.src = "https://telegram.org/js/telegram-widget.js?22";
+      s.setAttribute("data-telegram-login", bot);
+      s.setAttribute("data-size", "large");
+      s.setAttribute("data-radius", "12");
+      s.setAttribute("data-onauth", "onTelegramAuth(user)");
+      s.setAttribute("data-request-access", "write");
+      document.getElementById("widget").appendChild(s);
+    })();
+  </script>
+</body>
+</html>

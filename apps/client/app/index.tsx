@@ -19,6 +19,6 @@ export default function Index() {
       </View>
     );
   }
-  if (user) return <Redirect href="/(app)/home" />;
+  if (user) return <Redirect href="/(app)/(tabs)/home" />;
   return <Redirect href="/(auth)/welcome" />;
 }

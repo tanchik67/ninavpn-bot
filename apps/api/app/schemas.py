@@ -16,6 +16,20 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleAuthRequest(BaseModel):
+    id_token: str = Field(min_length=20, max_length=8192)
+
+
+class TelegramAuthRequest(BaseModel):
+    id: int
+    first_name: str = ""
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+    photo_url: Optional[str] = None
+    auth_date: int
+    hash: str = Field(min_length=32, max_length=128)
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -33,8 +47,37 @@ class UserOut(BaseModel):
     tg_id: Optional[int] = None
     panel_user_key: int
     created_at: datetime
+    has_password: bool = False
+    profile_emoji: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class ProfileEmojiRequest(BaseModel):
+    """Empty string clears the emoji."""
+
+    emoji: str = Field(default="", max_length=32)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    detail: str = "ok"
+    # Present only when SMTP is not configured (local/dev)
+    dev_code: Optional[str] = None
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=4, max_length=12)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: Optional[str] = None
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class PlanOut(BaseModel):
@@ -73,7 +116,9 @@ class ConfigOut(BaseModel):
 
 
 class CheckoutRequest(BaseModel):
-    plan_key: str
+    plan_key: Optional[str] = None
+    months: Optional[int] = Field(default=None, ge=1, le=12)
+    devices: Optional[int] = Field(default=None, ge=1, le=10)
     provider: Optional[str] = None
 
 
@@ -143,6 +188,19 @@ class SupportReplyRequest(BaseModel):
 class SupportChatOut(BaseModel):
     ticket: SupportTicketOut
     messages: list[SupportMessageOut]
+
+
+class SupportTicketAdminOut(BaseModel):
+    id: UUID
+    subject: str
+    body: str
+    status: str
+    created_at: datetime
+    user_id: UUID
+    user_email: str
+    last_message: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+    last_is_staff: bool = False
 
 
 class LinkTelegramRequest(BaseModel):

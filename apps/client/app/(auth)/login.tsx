@@ -5,19 +5,21 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
-  View,
 } from "react-native";
+import { AppText as Text } from "../../src/components/AppText";
 import { Field } from "../../src/components/Field";
 import { NinaLogo } from "../../src/components/NinaLogo";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { GlassCard } from "../../src/components/GlassCard";
+import { SocialAuthButtons } from "../../src/components/SocialAuthButtons";
 import { useAuth } from "../../src/lib/auth";
+import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, spacing } from "../../src/lib/theme";
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -28,9 +30,9 @@ export default function LoginScreen() {
     setError("");
     try {
       await login(email.trim(), password);
-      router.replace("/(app)/home");
+      router.replace("/(app)/(tabs)/home");
     } catch (e: any) {
-      setError(e?.message || "Ошибка входа");
+      setError(e?.message || t("login.errorGeneric"));
     } finally {
       setBusy(false);
     }
@@ -47,31 +49,38 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <NinaLogo size={28} />
-          <Text style={styles.headline}>Вход</Text>
-          <Text style={styles.sub}>Войдите в кабинет NinaVPN</Text>
+          <Text style={styles.headline}>{t("login.title")}</Text>
+          <Text style={styles.sub}>{t("login.subtitle")}</Text>
 
           <GlassCard style={{ gap: 12 }}>
             <Field
-              label="Email"
+              label={t("common.email")}
               autoCapitalize="none"
               keyboardType="email-address"
-              placeholder="you@email.com"
+              placeholder={t("common.emailPlaceholder")}
               value={email}
               onChangeText={setEmail}
             />
             <Field
-              label="Пароль"
+              label={t("common.password")}
               secureTextEntry
               placeholder="••••••••"
               value={password}
               onChangeText={setPassword}
             />
+            <Link href="/(auth)/forgot-password" style={styles.forgot}>
+              {t("login.forgotPassword")}
+            </Link>
             {!!error && <Text style={styles.error}>{error}</Text>}
-            <PrimaryButton label="Продолжить" onPress={onSubmit} busy={busy} />
+            <PrimaryButton label={t("common.continue")} onPress={onSubmit} busy={busy} />
+            <SocialAuthButtons
+              onSuccess={() => router.replace("/(app)/(tabs)/home")}
+              onError={setError}
+            />
           </GlassCard>
 
           <Link href="/(auth)/register" style={styles.link}>
-            Создать аккаунт
+            {t("login.createAccount")}
           </Link>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -104,6 +113,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.sm,
     fontFamily: fonts.bodySemi,
+  },
+  forgot: {
+    color: colors.accent,
+    alignSelf: "flex-end",
+    marginTop: -4,
+    fontFamily: fonts.bodySemi,
+    fontSize: 13,
   },
   error: { color: colors.danger, fontFamily: fonts.body },
 });

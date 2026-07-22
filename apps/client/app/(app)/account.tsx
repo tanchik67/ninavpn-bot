@@ -1,6 +1,8 @@
 import { router } from "expo-router";
+import { goBackOr } from "../../src/lib/nav";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { Pressable, ScrollView, StyleSheet } from "react-native";
+import { AppText as Text } from "../../src/components/AppText";
 import { Field } from "../../src/components/Field";
 import { GlassCard } from "../../src/components/GlassCard";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
@@ -8,12 +10,14 @@ import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api, API_URL } from "../../src/lib/api";
 import { useAuth } from "../../src/lib/auth";
+import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, spacing } from "../../src/lib/theme";
 
 type User = { id: string; email: string; tg_id?: number | null };
 
 export default function AccountScreen() {
   const { user, logout, refreshMe } = useAuth();
+  const { t } = useI18n();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -30,9 +34,9 @@ export default function AccountScreen() {
       });
       await refreshMe();
       setCode("");
-      setMsg("Telegram привязан");
+      setMsg(t("account.tgLinked"));
     } catch (e: any) {
-      setError(e?.message || "Не удалось привязать");
+      setError(e?.message || t("account.errorLink"));
     } finally {
       setBusy(false);
     }
@@ -44,9 +48,9 @@ export default function AccountScreen() {
     try {
       await api<User>("/api/v1/auth/unlink-telegram", { method: "POST" });
       await refreshMe();
-      setMsg("Telegram отвязан");
+      setMsg(t("account.tgUnlinked"));
     } catch (e: any) {
-      setError(e?.message || "Ошибка");
+      setError(e?.message || t("common.error"));
     } finally {
       setBusy(false);
     }
@@ -55,35 +59,37 @@ export default function AccountScreen() {
   return (
     <ScreenBackground>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Назад</Text>
+        <Pressable onPress={() => goBackOr("/(app)/(tabs)/profile")} hitSlop={12}>
+          <Text style={styles.back}>{t("common.back")}</Text>
         </Pressable>
         <NinaLogo size={24} />
-        <ScreenTitle>Аккаунт</ScreenTitle>
+        <ScreenTitle>{t("account.title")}</ScreenTitle>
 
         <GlassCard style={{ gap: 6 }}>
-          <Text style={styles.section}>Основные</Text>
-          <Text style={styles.row}>Email: {user?.email}</Text>
+          <Text style={styles.section}>{t("account.general")}</Text>
           <Text style={styles.row}>
-            Telegram: {user?.tg_id ? `id ${user.tg_id}` : "не привязан"}
+            {t("account.emailRow", { email: user?.email ?? "" })}
+          </Text>
+          <Text style={styles.row}>
+            {user?.tg_id
+              ? t("account.tgLinkedId", { id: user.tg_id })
+              : `Telegram: ${t("account.tgNotLinked")}`}
           </Text>
         </GlassCard>
 
         <GlassCard style={{ gap: 10, marginTop: spacing.md }}>
-          <Text style={styles.section}>Telegram</Text>
-          <Text style={styles.hint}>
-            В боте: /linkcabinet → вставьте код сюда.
-          </Text>
+          <Text style={styles.section}>{t("account.telegram")}</Text>
+          <Text style={styles.hint}>{t("account.tgHint")}</Text>
           {!user?.tg_id ? (
             <>
               <Field
-                placeholder="Код из бота"
+                placeholder={t("account.codePlaceholder")}
                 value={code}
                 onChangeText={setCode}
                 autoCapitalize="none"
               />
               <PrimaryButton
-                label="Привязать"
+                label={t("account.link")}
                 onPress={link}
                 busy={busy}
                 disabled={code.trim().length < 4}
@@ -92,7 +98,7 @@ export default function AccountScreen() {
           ) : (
             <PrimaryButton
               variant="secondary"
-              label="Отвязать Telegram"
+              label={t("account.unlinkTg")}
               onPress={unlink}
               busy={busy}
             />
@@ -102,16 +108,16 @@ export default function AccountScreen() {
         </GlassCard>
 
         <GlassCard style={{ gap: 10, marginTop: spacing.md }}>
-          <Text style={styles.section}>Поддержка</Text>
+          <Text style={styles.section}>{t("account.security")}</Text>
           <PrimaryButton
             variant="secondary"
-            label="Чат поддержки"
-            onPress={() => router.push("/(app)/support-chat")}
+            label={t("password.change")}
+            onPress={() => router.push("/(app)/change-password")}
           />
         </GlassCard>
 
-        <Text style={styles.api}>API: {API_URL}</Text>
-        <PrimaryButton variant="secondary" label="Выйти" onPress={logout} />
+        <Text style={styles.api}>{t("account.apiLabel", { url: API_URL })}</Text>
+        <PrimaryButton variant="secondary" label={t("common.logout")} onPress={logout} />
       </ScrollView>
     </ScreenBackground>
   );

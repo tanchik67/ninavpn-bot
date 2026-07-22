@@ -27,7 +27,10 @@
       "package": "store.ninavpn.app"
     },
     "extra": {
-      "apiUrl": "https://ninavpn.store"
+      "apiUrl": "https://ninavpn.store",
+      "googleWebClientId": "",
+      "telegramBotUsername": "",
+      "tgLoginUrl": "https://ninavpn.store/tg-login.html"
     }
   }
 }
