@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
 } from "react-native";
@@ -13,13 +14,19 @@ import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { GlassCard } from "../../src/components/GlassCard";
 import { SocialAuthButtons } from "../../src/components/SocialAuthButtons";
+import { formatApiError } from "../../src/lib/apiErrors";
 import { useAuth } from "../../src/lib/auth";
 import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, spacing } from "../../src/lib/theme";
 
+function isTelegramPlaceholderEmail(email: string) {
+  const e = email.trim().toLowerCase();
+  return e.endsWith("@telegram.local") || e.endsWith("@tg.ninavpn.store");
+}
+
 export default function LoginScreen() {
   const { login } = useAuth();
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,10 +36,14 @@ export default function LoginScreen() {
     setBusy(true);
     setError("");
     try {
+      if (isTelegramPlaceholderEmail(email)) {
+        setError(t("login.useTelegram"));
+        return;
+      }
       await login(email.trim(), password);
       router.replace("/(app)/(tabs)/home");
-    } catch (e: any) {
-      setError(e?.message || t("login.errorGeneric"));
+    } catch (e: unknown) {
+      setError(formatApiError(e, t("login.errorGeneric")));
     } finally {
       setBusy(false);
     }
@@ -79,9 +90,27 @@ export default function LoginScreen() {
             />
           </GlassCard>
 
-          <Link href="/(auth)/register" style={styles.link}>
+          <Link href="/(auth)/signup" style={styles.link}>
             {t("login.createAccount")}
           </Link>
+
+          {locale === "ru" ? (
+            <Pressable
+              onPress={() => setLocale("en")}
+              style={styles.langBtn}
+              hitSlop={8}
+            >
+              <Text style={styles.langText}>{t("welcome.continueEn")}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => setLocale("ru")}
+              style={styles.langBtn}
+              hitSlop={8}
+            >
+              <Text style={styles.langText}>{t("welcome.continueRu")}</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenBackground>
@@ -93,6 +122,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: spacing.xl,
     paddingTop: 72,
+    paddingBottom: 40,
     gap: spacing.sm,
     justifyContent: "center",
   },
@@ -122,4 +152,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   error: { color: colors.danger, fontFamily: fonts.body },
+  langBtn: {
+    marginTop: 16,
+    alignSelf: "center",
+    paddingVertical: 8,
+  },
+  langText: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 13,
+  },
 });

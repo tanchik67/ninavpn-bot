@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uptime — NinaVPN</title>
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="wrap">
+  <nav class="top">
+    <a class="brand" href="index.html"><img class="brand-mark" src="/assets/nina-wordmark.png" alt="NinaVPN" width="187" height="28"></a>
+    <div class="links"><a href="status.html">Live status</a><a href="security.html">Security</a></div>
+  </nav>
+  <div class="badge">Transparency</div>
+  <h1>Uptime report</h1>
+  <p class="lead">Target: <strong>99.9%</strong> API availability. Live checks: <a href="status.html">status page</a> + <code>/health</code>.</p>
+  <div class="card">
+    <strong>How we measure</strong>
+    <ul class="clean">
+      <li>External curl to <code>/health</code> via <code>scripts/health-monitor.sh</code></li>
+      <li>Panel node probes from the bot status service</li>
+      <li>Incidents documented in ops playbook</li>
+    </ul>
+  </div>
+  <div class="card muted">Annual public uptime summary will be published here after a full year of tracked metrics.</div>
+</div>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import logging
 from secrets import randbelow
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -27,6 +28,7 @@ from core.ports.notifications import NotificationMessage
 from core.services import auth_service
 from core.services.audit import write_audit
 from core.services.auth_service import AuthError
+from core.services.welcome_access import ensure_welcome_row, schedule_welcome_access
 from core.services.oauth_verify import (
     OAuthVerifyError,
     verify_google_id_token,
@@ -37,6 +39,7 @@ from infrastructure.db.models import User
 from infrastructure.redis.client import get_redis
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 _PWD_RESET_TTL = 900  # 15 minutes
 _PWD_RESET_COOLDOWN = 60
@@ -46,37 +49,68 @@ def _smtp_configured() -> bool:
     return bool(saas_settings.SMTP_HOST and saas_settings.SMTP_FROM)
 
 
+async def _start_welcome(session, user) -> None:
+    try:
+        await ensure_welcome_row(session, user)
+    except Exception:
+        log.exception("welcome row failed user=%s", getattr(user, "id", None))
+    try:
+        schedule_welcome_access(user.id)
+    except Exception:
+        log.exception("welcome schedule failed user=%s", getattr(user, "id", None))
+
+
 @router.post("/register", response_model=TokenResponse)
 @limiter.limit(saas_settings.AUTH_RATE_LIMIT)
-async def register(body: RegisterRequest, request: Request, session: SessionDep):
+async def register(
+    body: RegisterRequest,
+    request: Request,
+    session: SessionDep,
+):
     try:
         user, access, refresh = await auth_service.register_user(
             session, email=body.email, password=body.password, ip=client_ip(request)
         )
     except AuthError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.code)
+    await _start_welcome(session, user)
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit(saas_settings.AUTH_RATE_LIMIT)
-async def login(body: LoginRequest, request: Request, session: SessionDep):
+async def login(
+    body: LoginRequest,
+    request: Request,
+    session: SessionDep,
+):
     try:
         user, access, refresh = await auth_service.login_user(
             session, email=body.email, password=body.password, ip=client_ip(request)
         )
     except AuthError as e:
-        code = status.HTTP_403_FORBIDDEN if e.code == "banned" else status.HTTP_401_UNAUTHORIZED
+        if e.code == "banned":
+            code = status.HTTP_403_FORBIDDEN
+        elif e.code == "use_telegram_login":
+            code = status.HTTP_400_BAD_REQUEST
+        else:
+            code = status.HTTP_401_UNAUTHORIZED
         raise HTTPException(status_code=code, detail=e.code)
+    await _start_welcome(session, user)
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
 @router.post("/google", response_model=TokenResponse)
 @limiter.limit(saas_settings.AUTH_RATE_LIMIT)
-async def login_google(body: GoogleAuthRequest, request: Request, session: SessionDep):
+async def login_google(
+    body: GoogleAuthRequest,
+    request: Request,
+    session: SessionDep,
+):
     try:
         claims = await verify_google_id_token(body.id_token)
     except OAuthVerifyError as e:
+        log.warning("google auth failed: %s (token_len=%s)", e.code, len(body.id_token or ""))
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=e.code)
 
     email = claims.get("email")
@@ -84,7 +118,7 @@ async def login_google(body: GoogleAuthRequest, request: Request, session: Sessi
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="google_email_required")
 
     try:
-        _, access, refresh = await auth_service.login_or_register_google(
+        user, access, refresh = await auth_service.login_or_register_google(
             session,
             google_sub=str(claims["sub"]),
             email=str(email),
@@ -94,12 +128,17 @@ async def login_google(body: GoogleAuthRequest, request: Request, session: Sessi
     except AuthError as e:
         code = status.HTTP_403_FORBIDDEN if e.code == "banned" else status.HTTP_400_BAD_REQUEST
         raise HTTPException(status_code=code, detail=e.code)
+    await _start_welcome(session, user)
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
 @router.post("/telegram", response_model=TokenResponse)
 @limiter.limit(saas_settings.AUTH_RATE_LIMIT)
-async def login_telegram(body: TelegramAuthRequest, request: Request, session: SessionDep):
+async def login_telegram(
+    body: TelegramAuthRequest,
+    request: Request,
+    session: SessionDep,
+):
     payload = body.model_dump(exclude_none=True)
     try:
         data = verify_telegram_login(payload)
@@ -107,7 +146,7 @@ async def login_telegram(body: TelegramAuthRequest, request: Request, session: S
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=e.code)
 
     try:
-        _, access, refresh = await auth_service.login_or_register_telegram(
+        user, access, refresh = await auth_service.login_or_register_telegram(
             session,
             tg_id=int(data["id"]),
             username=data.get("username"),
@@ -116,6 +155,7 @@ async def login_telegram(body: TelegramAuthRequest, request: Request, session: S
     except AuthError as e:
         code = status.HTTP_403_FORBIDDEN if e.code == "banned" else status.HTTP_400_BAD_REQUEST
         raise HTTPException(status_code=code, detail=e.code)
+    await _start_welcome(session, user)
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 

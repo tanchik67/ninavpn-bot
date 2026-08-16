@@ -7,6 +7,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { getSessionUserId, onSessionUserId } from "./sessionUser";
 
 const STORAGE_KEY = "nv_text_size";
 
@@ -57,32 +58,52 @@ function clampStep(step: number, largerSizes: boolean) {
   return Math.max(0, Math.min(max, Math.round(step)));
 }
 
+function storageKey(userId: string | null) {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
+
 export function TextSizeProvider({ children }: { children: React.ReactNode }) {
   const [step, setStepState] = useState(TEXT_SIZE_DEFAULT_STEP);
   const [largerSizes, setLargerState] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    (async () => {
+    let alive = true;
+    const load = async (userId: string | null) => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(storageKey(userId));
+        if (!alive) return;
         if (raw) {
           const parsed = JSON.parse(raw) as Stored;
           const larger = !!parsed.largerSizes;
           setLargerState(larger);
           setStepState(clampStep(parsed.step ?? TEXT_SIZE_DEFAULT_STEP, larger));
+        } else {
+          setLargerState(false);
+          setStepState(TEXT_SIZE_DEFAULT_STEP);
         }
       } catch {
-        /* defaults */
+        if (alive) {
+          setLargerState(false);
+          setStepState(TEXT_SIZE_DEFAULT_STEP);
+        }
       } finally {
-        setReady(true);
+        if (alive) setReady(true);
       }
-    })();
+    };
+    void load(getSessionUserId());
+    const stop = onSessionUserId((id) => {
+      void load(id);
+    });
+    return () => {
+      alive = false;
+      stop();
+    };
   }, []);
 
   const persist = useCallback(async (next: Stored) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      await AsyncStorage.setItem(storageKey(getSessionUserId()), JSON.stringify(next));
     } catch {
       /* ignore */
     }

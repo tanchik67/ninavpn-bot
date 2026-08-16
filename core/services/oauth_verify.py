@@ -7,7 +7,7 @@ import time
 from typing import Any, Optional
 
 import httpx
-from jose import jwt
+from jose import jwk, jwt
 from jose.exceptions import JWTError
 
 from core.settings import saas_settings
@@ -41,12 +41,39 @@ def _google_audiences() -> list[str]:
     return [x.strip() for x in saas_settings.GOOGLE_CLIENT_IDS.split(",") if x.strip()]
 
 
-async def verify_google_id_token(id_token: str) -> dict[str, Any]:
-    """Verify Google ID token; returns claims (sub, email, email_verified, name, …)."""
-    audiences = _google_audiences()
-    if not audiences:
-        raise OAuthVerifyError("google_not_configured")
+def _audience_ok(claims: dict[str, Any], audiences: list[str]) -> bool:
+    aud = claims.get("aud")
+    if isinstance(aud, list):
+        if any(a in audiences for a in aud):
+            return True
+    elif aud in audiences:
+        return True
+    # Some Google tokens put the web client in azp
+    azp = claims.get("azp")
+    return isinstance(azp, str) and azp in audiences
 
+
+async def _verify_google_via_tokeninfo(id_token: str, audiences: list[str]) -> dict[str, Any]:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.get(
+            "https://oauth2.googleapis.com/tokeninfo",
+            params={"id_token": id_token},
+        )
+    if res.status_code != 200:
+        raise OAuthVerifyError("invalid_google_token")
+    claims = res.json()
+    if not _audience_ok(claims, audiences):
+        raise OAuthVerifyError("invalid_google_token")
+    if not claims.get("sub"):
+        raise OAuthVerifyError("invalid_google_token")
+    # tokeninfo returns email_verified as "true"/"false" strings
+    verified = claims.get("email_verified")
+    if isinstance(verified, str):
+        claims["email_verified"] = verified.lower() == "true"
+    return claims
+
+
+async def _verify_google_via_jwks(id_token: str, audiences: list[str]) -> dict[str, Any]:
     try:
         header = jwt.get_unverified_header(id_token)
     except JWTError as e:
@@ -63,7 +90,6 @@ async def verify_google_id_token(id_token: str) -> dict[str, Any]:
 
     key = next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
     if not key:
-        # refresh once
         global _google_jwks_fetched_at
         _google_jwks_fetched_at = 0
         jwks = await _get_google_jwks()
@@ -72,20 +98,57 @@ async def verify_google_id_token(id_token: str) -> dict[str, Any]:
         raise OAuthVerifyError("invalid_google_token")
 
     try:
-        claims = jwt.decode(
-            id_token,
-            key,
-            algorithms=["RS256"],
-            audience=audiences,
-            issuer=["https://accounts.google.com", "accounts.google.com"],
-            options={"verify_at_hash": False},
-        )
-    except JWTError as e:
+        key_obj = jwk.construct(key)
+    except Exception as e:
         raise OAuthVerifyError("invalid_google_token") from e
 
-    if not claims.get("sub"):
+    last_err: Optional[Exception] = None
+    # Verify signature + iss/exp first; check aud/azp ourselves (Google may put client in azp).
+    for issuer in ("https://accounts.google.com", "accounts.google.com"):
+        try:
+            claims = jwt.decode(
+                id_token,
+                key_obj,
+                algorithms=["RS256"],
+                issuer=issuer,
+                options={
+                    "verify_at_hash": False,
+                    "verify_aud": False,
+                },
+            )
+            if not _audience_ok(claims, audiences):
+                raise OAuthVerifyError("invalid_google_token")
+            if not claims.get("sub"):
+                raise OAuthVerifyError("invalid_google_token")
+            return claims
+        except OAuthVerifyError:
+            raise
+        except JWTError as e:
+            last_err = e
+            continue
+    raise OAuthVerifyError("invalid_google_token") from last_err
+
+
+async def verify_google_id_token(id_token: str) -> dict[str, Any]:
+    """Verify Google ID token; returns claims (sub, email, email_verified, name, …)."""
+    audiences = _google_audiences()
+    if not audiences:
+        raise OAuthVerifyError("google_not_configured")
+
+    token = (id_token or "").strip()
+    if not token or token.count(".") != 2:
         raise OAuthVerifyError("invalid_google_token")
-    return claims
+
+    try:
+        return await _verify_google_via_jwks(token, audiences)
+    except OAuthVerifyError as e:
+        if e.code == "google_jwks_unavailable":
+            return await _verify_google_via_tokeninfo(token, audiences)
+        # Fallback: Google tokeninfo (handles edge cases python-jose misses)
+        try:
+            return await _verify_google_via_tokeninfo(token, audiences)
+        except OAuthVerifyError:
+            raise e
 
 
 def verify_telegram_login(payload: dict[str, Any]) -> dict[str, Any]:

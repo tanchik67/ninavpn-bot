@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { AppText as Text } from "../../src/components/AppText";
+import { BackCircleButton } from "../../src/components/BackCircleButton";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
 import { GlassCard } from "../../src/components/GlassCard";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
@@ -18,8 +19,11 @@ import { useI18n } from "../../src/lib/i18n";
 import {
   calculatePriceRub,
   customPlanKey,
+  formatDualPrice,
+  isFamilyPack,
   monthlyEquivalent,
   savingVsMonthly,
+  BASE_DEVICES,
 } from "../../src/lib/pricing";
 import { colors, fonts, radii, spacing } from "../../src/lib/theme";
 
@@ -72,15 +76,35 @@ export default function PlansScreen() {
     });
   };
 
+  const readyPlanDesc = (item: Plan) => {
+    if (item.plan_key === "1m_1d") return t("plans.planDesc1m");
+    if (item.plan_key === "6m_3d") return t("plans.planDesc6m");
+    if (item.plan_key === "12m_5d") return t("plans.planDesc12m");
+    if (item.devices > 1) {
+      return t("plans.planFallbackDescUpTo", {
+        months: item.months,
+        devices: item.devices,
+      });
+    }
+    return (
+      item.description ||
+      t("plans.planFallbackDesc", {
+        months: item.months,
+        devices: item.devices,
+      })
+    );
+  };
+
   return (
     <ScreenBackground>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={() => goBackOr("/(app)/(tabs)/home")} hitSlop={12}>
-          <Text style={styles.back}>{t("common.back")}</Text>
-        </Pressable>
+        <BackCircleButton
+          onPress={() => goBackOr("/(app)/(tabs)/home")}
+          style={styles.backBtn}
+        />
         <NinaLogo size={24} />
         <ScreenTitle>{t("plans.title")}</ScreenTitle>
         <Text style={styles.sub}>{t("plans.subtitle")}</Text>
@@ -94,7 +118,10 @@ export default function PlansScreen() {
             {MONTHS.map((m) => (
               <Pressable
                 key={m}
-                onPress={() => setMonths(m)}
+                onPress={() => {
+                  setMonths(m);
+                  setDevices(BASE_DEVICES[m] ?? 1);
+                }}
                 style={[styles.pill, months === m && styles.pillActive]}
               >
                 <Text style={[styles.pillText, months === m && styles.pillTextActive]}>
@@ -105,20 +132,26 @@ export default function PlansScreen() {
           </View>
 
           <Text style={styles.label}>{t("plans.devicesLabel", { devices })}</Text>
+          {isFamilyPack(devices) ? (
+            <Text style={styles.family}>{t("family.badge")}</Text>
+          ) : null}
           <View style={styles.deviceRow}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => (
-              <Pressable
-                key={d}
-                onPress={() => setDevices(d)}
-                style={[styles.devChip, devices === d && styles.devChipActive]}
-              >
-                <Text
-                  style={[styles.devChipText, devices === d && styles.devChipTextActive]}
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => {
+              const selected = d <= devices;
+              return (
+                <Pressable
+                  key={d}
+                  onPress={() => setDevices(d)}
+                  style={[styles.devChip, selected && styles.devChipActive]}
                 >
-                  {d}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={[styles.devChipText, selected && styles.devChipTextActive]}
+                  >
+                    {d}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
 
           <View style={styles.totalBlock}>
@@ -126,6 +159,7 @@ export default function PlansScreen() {
             <Text style={styles.totalPrice}>
               {t("plans.priceRub", { price: total.toLocaleString(numLocale) })}
             </Text>
+            <Text style={styles.fx}>{formatDualPrice(total)}</Text>
             <Text style={styles.totalDetail}>
               {t("plans.totalDetail", { perMonth, devices, months })}
             </Text>
@@ -148,13 +182,7 @@ export default function PlansScreen() {
               <View style={styles.row}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{item.name}</Text>
-                  <Text style={styles.desc}>
-                    {item.description ||
-                      t("plans.planFallbackDesc", {
-                        months: item.months,
-                        devices: item.devices,
-                      })}
-                  </Text>
+                  <Text style={styles.desc}>{readyPlanDesc(item)}</Text>
                 </View>
                 <Text style={styles.price}>
                   {t("plans.priceRub", { price: item.price_rub })}
@@ -183,7 +211,7 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 110,
   },
-  back: { color: colors.accent, fontFamily: fonts.bodySemi, marginBottom: 8 },
+  backBtn: { marginBottom: 8 },
   sub: {
     color: colors.muted,
     marginBottom: 16,
@@ -250,6 +278,18 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     fontSize: 32,
     marginTop: 4,
+  },
+  fx: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  family: {
+    color: colors.accent,
+    fontFamily: fonts.bodySemi,
+    fontSize: 12,
+    marginBottom: 8,
   },
   totalDetail: {
     color: colors.muted,

@@ -3,11 +3,11 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
 } from "react-native";
 import { AppText as Text } from "../../src/components/AppText";
+import { BackCircleButton } from "../../src/components/BackCircleButton";
 import { Field } from "../../src/components/Field";
 import { GlassCard } from "../../src/components/GlassCard";
 import { ScreenTitle } from "../../src/components/NinaLogo";
@@ -89,9 +89,10 @@ export default function ChangePasswordScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <Pressable onPress={() => goBackOr("/(app)/(tabs)/profile")} hitSlop={12}>
-            <Text style={styles.back}>{t("common.back")}</Text>
-          </Pressable>
+          <BackCircleButton
+            onPress={() => goBackOr("/(app)/(tabs)/profile")}
+            style={styles.backBtn}
+          />
           <ScreenTitle>{t("changePassword.title")}</ScreenTitle>
           <Text style={styles.sub}>
             {hasPassword ? t("changePassword.subtitleHas") : t("changePassword.subtitleSet")}
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
     gap: 8,
   },
-  back: { color: colors.accent, fontFamily: fonts.bodySemi, marginBottom: 8 },
+  backBtn: { marginBottom: 8 },
   sub: {
     fontFamily: fonts.body,
     color: colors.muted,

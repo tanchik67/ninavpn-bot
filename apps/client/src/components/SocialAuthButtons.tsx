@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from "react-native";
 import { AppText as Text } from "./AppText";
 import { useAuth } from "../lib/auth";
+import { formatApiError } from "../lib/apiErrors";
 import { useI18n } from "../lib/i18n";
 import {
   GOOGLE_WEB_CLIENT_ID,
+  openGoogleLoginNative,
   openTelegramLogin,
   TELEGRAM_BOT_USERNAME,
   useGoogleIdTokenAuth,
@@ -16,10 +18,19 @@ type Props = {
   onError?: (msg: string) => void;
   busy?: "google" | "telegram" | null;
   setBusy?: (v: "google" | "telegram" | null) => void;
+  googleLabel?: string;
+  telegramLabel?: string;
+  showDivider?: boolean;
 };
 
-/** Only mount when GOOGLE_WEB_CLIENT_ID is set — avoids Expo web crash. */
-function GoogleSignInButton({ onSuccess, onError, busy, setBusy }: Props) {
+/** Web: AuthSession Google provider. */
+function GoogleSignInWebButton({
+  onSuccess,
+  onError,
+  busy,
+  setBusy,
+  googleLabel,
+}: Props) {
   const { loginWithGoogle } = useAuth();
   const { t } = useI18n();
   const google = useGoogleIdTokenAuth();
@@ -43,8 +54,8 @@ function GoogleSignInButton({ onSuccess, onError, busy, setBusy }: Props) {
       }
       await loginWithGoogle(token);
       onSuccess?.();
-    } catch (e: any) {
-      onError?.(e?.message || t("social.googleFailed"));
+    } catch (e: unknown) {
+      onError?.(formatApiError(e, t("social.googleFailed")));
     } finally {
       setBusy?.(null);
     }
@@ -55,17 +66,61 @@ function GoogleSignInButton({ onSuccess, onError, busy, setBusy }: Props) {
       {busy === "google" ? (
         <ActivityIndicator color={colors.text} />
       ) : (
-        <Text style={styles.btnText}>{t("social.google")}</Text>
+        <Text style={styles.btnText}>{googleLabel || t("social.google")}</Text>
       )}
     </Pressable>
   );
 }
 
-export function SocialAuthButtons({ onSuccess, onError }: Props) {
+/** Android/iOS: HTTPS bridge page → deep link with id_token. */
+function GoogleSignInNativeButton({
+  onSuccess,
+  onError,
+  busy,
+  setBusy,
+  googleLabel,
+}: Props) {
+  const { loginWithGoogle } = useAuth();
+  const { t } = useI18n();
+
+  const onPress = async () => {
+    setBusy?.("google");
+    try {
+      const token = await openGoogleLoginNative();
+      await loginWithGoogle(token);
+      onSuccess?.();
+    } catch (e: any) {
+      if (e?.message === "google_cancelled") return;
+      onError?.(formatApiError(e, t("social.googleFailed")));
+    } finally {
+      setBusy?.(null);
+    }
+  };
+
+  return (
+    <Pressable style={[styles.btn, styles.google]} onPress={onPress} disabled={!!busy}>
+      {busy === "google" ? (
+        <ActivityIndicator color={colors.text} />
+      ) : (
+        <Text style={styles.btnText}>{googleLabel || t("social.google")}</Text>
+      )}
+    </Pressable>
+  );
+}
+
+export function SocialAuthButtons({
+  onSuccess,
+  onError,
+  googleLabel,
+  telegramLabel,
+  showDivider = true,
+}: Props) {
   const { loginWithTelegram } = useAuth();
   const { t } = useI18n();
   const [busy, setBusy] = useState<"google" | "telegram" | null>(null);
   const googleConfigured = !!GOOGLE_WEB_CLIENT_ID;
+  const gLabel = googleLabel || t("social.google");
+  const tLabel = telegramLabel || t("social.telegram");
 
   const onGoogleUnconfigured = () => {
     onError?.(t("social.googleNotConfigured"));
@@ -83,27 +138,33 @@ export function SocialAuthButtons({ onSuccess, onError }: Props) {
       onSuccess?.();
     } catch (e: any) {
       if (e?.message !== "telegram_cancelled") {
-        onError?.(e?.message || t("social.telegramFailed"));
+        onError?.(formatApiError(e, t("social.telegramFailed")));
       }
     } finally {
       setBusy(null);
     }
   };
 
+  const GoogleBtn =
+    Platform.OS === "web" ? GoogleSignInWebButton : GoogleSignInNativeButton;
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.dividerRow}>
-        <View style={styles.line} />
-        <Text style={styles.or}>{t("social.or")}</Text>
-        <View style={styles.line} />
-      </View>
+      {showDivider ? (
+        <View style={styles.dividerRow}>
+          <View style={styles.line} />
+          <Text style={styles.or}>{t("social.or")}</Text>
+          <View style={styles.line} />
+        </View>
+      ) : null}
 
       {googleConfigured ? (
-        <GoogleSignInButton
+        <GoogleBtn
           onSuccess={onSuccess}
           onError={onError}
           busy={busy}
           setBusy={setBusy}
+          googleLabel={gLabel}
         />
       ) : (
         <Pressable
@@ -111,7 +172,7 @@ export function SocialAuthButtons({ onSuccess, onError }: Props) {
           onPress={onGoogleUnconfigured}
           disabled={!!busy}
         >
-          <Text style={styles.btnText}>{t("social.google")}</Text>
+          <Text style={styles.btnText}>{gLabel}</Text>
         </Pressable>
       )}
 
@@ -119,7 +180,7 @@ export function SocialAuthButtons({ onSuccess, onError }: Props) {
         {busy === "telegram" ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={[styles.btnText, { color: "#fff" }]}>{t("social.telegram")}</Text>
+          <Text style={[styles.btnText, { color: "#fff" }]}>{tLabel}</Text>
         )}
       </Pressable>
     </View>

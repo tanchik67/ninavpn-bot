@@ -33,13 +33,13 @@
       margin-bottom: 40px;
     }
     .logo {
-      font-size: 1.3rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #7B2FFF, #A855F7);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      display: inline-flex;
+      align-items: center;
       text-decoration: none;
+      background: none;
+      -webkit-text-fill-color: unset;
     }
+    .logo img, .logo .brand-mark { display: block; height: 28px; width: auto; }
     .back-btn {
       color: var(--muted);
       text-decoration: none;
@@ -120,8 +120,14 @@
 <body>
 
 <header>
-  <a href="/" class="logo">NINAVPN</a>
-  <a href="/" class="back-btn">← На главную</a>
+  <a href="/" class="logo"><img class="brand-mark" src="/assets/nina-wordmark.png" alt="NinaVPN" width="187" height="28"></a>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div class="lang-switch" style="display:inline-flex;gap:2px;padding:3px;border-radius:100px;border:1px solid var(--border);">
+      <button type="button" class="lang-btn active" style="border:none;background:#7B2FFF;color:#fff;font:600 0.72rem Onest,sans-serif;padding:7px 10px;border-radius:100px;cursor:pointer;">Русский</button>
+      <button type="button" class="lang-btn" id="toEn" style="border:none;background:transparent;color:var(--muted);font:600 0.72rem Onest,sans-serif;padding:7px 10px;border-radius:100px;cursor:pointer;">English</button>
+    </div>
+    <a href="/" class="back-btn">← На главную</a>
+  </div>
 </header>
 
 <main>
@@ -160,7 +166,7 @@
 
   <h2>5. Предоставление услуг и подключение</h2>
   <p>5.1. Доступ предоставляется немедленно после оплаты. Конфигурация (ключ/QR-код) доставляется Пользователю автоматически через Telegram-бота.</p>
-  <p>5.2. Пользователь самостоятельно настраивает ПО (клиенты v2rayNG, Happ Plus, Hiddify, V2Box и др.) на своих устройствах: iPhone, Android, Windows, macOS, Linux или роутер.</p>
+  <p>5.2. Пользователь подключается через официальное приложение NinaVPN на своих устройствах: iPhone, Android, Windows, macOS, Linux или роутер.</p>
 
   <h2>6. Права и обязанности сторон</h2>
   <p>6.1. <strong>Исполнитель обязан:</strong></p>
@@ -197,6 +203,7 @@
     <p>ОГРНИП: 326565800043202</p>
     <p>E-mail: <a href="mailto:hssestandards@gmail.com">hssestandards@gmail.com</a></p>
     <p>Telegram-бот для поддержки: <a href="https://t.me/NinaVPN_bot" target="_blank">@NinaVPN_bot</a></p>
+    <p>Канал: <a href="https://t.me/ninavpn_official" target="_blank" rel="noopener noreferrer">@ninavpn_official</a></p>
   </div>
 
   <p class="date">Дата публикации: 7 мая 2026 г.</p>
@@ -205,6 +212,15 @@
 <footer>
   © 2026 NINAVPN · ИНН: 561103417110
 </footer>
-
+<script>
+  try { localStorage.setItem('nv_site_lang', 'ru'); } catch (e) {}
+  if ((localStorage.getItem('nv_site_lang') || '') === 'en') {
+    /* stay on RU if user clicked RU; EN button navigates */
+  }
+  document.getElementById('toEn')?.addEventListener('click', function () {
+    try { localStorage.setItem('nv_site_lang', 'en'); } catch (e) {}
+    location.href = '/en/oferta.html';
+  });
+</script>
 </body>
 </html>

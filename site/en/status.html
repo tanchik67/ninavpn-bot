@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network status — NinaVPN</title>
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<div class="wrap">
+  <nav class="top">
+    <a class="brand" href="index.html"><img class="brand-mark" src="/assets/nina-wordmark.png" alt="NinaVPN" width="187" height="28"></a>
+    <div class="links"><a href="../status.html">RU</a><a href="how-we-work.html">Trust</a></div>
+  </nav>
+  <div class="badge">Status</div>
+  <h1>Network status</h1>
+  <p class="lead">Public health page. API: <code>/health</code> and <code>/api/v1/network/status</code>.</p>
+  <div class="card" id="apiCard"><span class="muted">Checking API…</span></div>
+  <div class="grid two" id="locs"></div>
+</div>
+<script>
+async function load() {
+  const apiCard = document.getElementById('apiCard');
+  const locs = document.getElementById('locs');
+  try {
+    const h = await fetch('/health', { cache: 'no-store' });
+    const hj = await h.json();
+    apiCard.innerHTML = h.ok
+      ? `<span class="status-ok">● API ok</span> · ${hj.service || 'ninavpn-api'}`
+      : `<span class="status-warn">● API degraded</span>`;
+  } catch (e) {
+    apiCard.innerHTML = `<span class="status-warn">● API unreachable</span>`;
+  }
+  try {
+    const r = await fetch('/api/v1/network/locations', { cache: 'no-store' });
+    const data = await r.json();
+    locs.innerHTML = data.map(l => `
+      <div class="card">
+        <div>${l.flag} <strong>${l.city}</strong></div>
+        <div class="muted">${l.country} · ${l.region}</div>
+        <div class="status-ok">● ${l.status}</div>
+      </div>`).join('');
+  } catch (e) {
+    locs.innerHTML = `<div class="card muted">Location catalog temporarily unavailable.</div>`;
+  }
+}
+load();
+</script>
+</body>
+</html>

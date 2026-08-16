@@ -47,8 +47,24 @@ class XuiNodeConfig:
     client_flow: str = ""
     two_factor_code: str = ""
     label: str = ""
+    # Cabinet display (NinaVPN app server list)
+    id: str = ""
+    flag: str = ""
+    city: str = ""
+    country: str = ""
+    region: str = ""
     # None — использовать settings.XUI_VERIFY_SSL; False — TLS без проверки (истёкший/самоподписанный сертификат панели)
     verify_ssl: Optional[bool] = None
+
+
+def _slug_node_id(label: str, index: int) -> str:
+    import re
+
+    raw = (label or "").strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", raw).strip("-")
+    if not slug:
+        slug = f"node-{index + 1}"
+    return slug[:64]
 
 
 def parse_xui_nodes_json(raw: Optional[str]) -> list[XuiNodeConfig]:
@@ -76,6 +92,9 @@ def parse_xui_nodes_json(raw: Optional[str]) -> list[XuiNodeConfig]:
         sub_port: Optional[int] = None
         if raw_sp is not None and str(raw_sp).strip() != "":
             sub_port = int(raw_sp)
+        label = str(item.get("label") or f"Узел {i + 1}").strip()
+        node_id = str(item.get("id") or "").strip() or _slug_node_id(label, i)
+        city = str(item.get("city") or "").strip() or label
         out.append(
             XuiNodeConfig(
                 url=url.rstrip("/"),
@@ -91,7 +110,12 @@ def parse_xui_nodes_json(raw: Optional[str]) -> list[XuiNodeConfig]:
                 sub_path=str(item.get("sub_path") or "").strip().strip("/"),
                 client_flow=str(item.get("client_flow") or "").strip(),
                 two_factor_code=str(item.get("two_factor_code") or "").strip(),
-                label=str(item.get("label") or f"Узел {i + 1}").strip(),
+                label=label,
+                id=node_id,
+                flag=str(item.get("flag") or "🌐").strip() or "🌐",
+                city=city,
+                country=str(item.get("country") or "").strip(),
+                region=str(item.get("region") or "").strip(),
                 verify_ssl=_optional_bool_json(item.get("verify_ssl")),
             )
         )
@@ -117,6 +141,11 @@ def xui_nodes_from_settings(s: "Settings") -> list[XuiNodeConfig]:
                 client_flow=(s.XUI_CLIENT_FLOW or "").strip(),
                 two_factor_code=(s.XUI_2FA_CODE or "").strip(),
                 label="Узел 1",
+                id="node-1",
+                flag="🌐",
+                city="Узел 1",
+                country="",
+                region="",
                 verify_ssl=None,
             )
         ]
@@ -325,7 +354,7 @@ PLANS = {
         "devices": 3,
         "price_rub": 500,
         "price_usdt": 5.5,
-        "description": "6 месяцев · 3 устройства · экономия 100 ₽",
+        "description": "6 месяцев · до 3 устройств · экономия 100 ₽",
         "emoji": "🔥",
         "popular": True,
     },
@@ -335,7 +364,7 @@ PLANS = {
         "devices": 5,
         "price_rub": 1000,
         "price_usdt": 11.1,
-        "description": "12 месяцев · 5 устройств · экономия 200 ₽",
+        "description": "12 месяцев · до 5 устройств · экономия 200 ₽",
         "emoji": "💎",
     },
 }

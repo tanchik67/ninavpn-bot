@@ -2,31 +2,50 @@ import { router } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
-  View,
-  Platform,
   Text as RNText,
+  useWindowDimensions,
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText as Text } from "../../../src/components/AppText";
+import { IosEmoji } from "../../../src/components/IosEmoji";
 import { ScreenTitle } from "../../../src/components/NinaLogo";
 import { GlassCard } from "../../../src/components/GlassCard";
 import { PrimaryButton } from "../../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../../src/components/ScreenBackground";
 import { api } from "../../../src/lib/api";
+import { formatApiError } from "../../../src/lib/apiErrors";
 import { useAuth } from "../../../src/lib/auth";
-import { useI18n } from "../../../src/lib/i18n";
+import { formatProfileDate, useI18n } from "../../../src/lib/i18n";
 import { PROFILE_EMOJIS } from "../../../src/lib/profileEmojis";
 import { isEmojiEndpointMissing } from "../../../src/lib/profileEmojiStorage";
+import {
+  isSubscriptionActive,
+  loadCachedSubscription,
+  saveCachedSubscription,
+  type CachedSubscription,
+} from "../../../src/lib/subscriptionCache";
+import { getDockClearance, useFontScale } from "../../../src/lib/textSize";
 import { colors, fonts, radii, spacing } from "../../../src/lib/theme";
 
-type Sub = {
-  status: string;
-  plan_name?: string;
-  expires_at?: string;
-};
+type Sub = CachedSubscription;
+
+function localizedPlanName(sub: Sub | null, t: (path: string) => string): string {
+  const key = String(sub?.plan_key || "").toLowerCase();
+  const name = String(sub?.plan_name || "").trim();
+  const compact = name.toLowerCase().replace(/\s+/g, " ");
+  const welcome =
+    key === "welcome_3m" ||
+    key.includes("welcome") ||
+    /^welcome$/i.test(name) ||
+    /3\s*месяц/i.test(compact) ||
+    (sub?.months === 3 && String(sub?.status || "").toLowerCase() === "trial");
+  if (welcome) return t("profile.welcomePlan");
+  return name || t("profile.defaultPlan");
+}
 
 type UserOut = {
   id: string;
@@ -35,126 +54,153 @@ type UserOut = {
   profile_emoji?: string | null;
 };
 
+const COLS = 6;
+const CELL_GAP = 8;
+
 function daysLeft(expires?: string) {
   if (!expires) return null;
   const diff = new Date(expires).getTime() - Date.now();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-const emojiFont = Platform.select({
-  ios: "System",
-  android: "sans-serif",
-  default: undefined,
-});
-
 export default function ProfileScreen() {
-  const { user, refreshMe, patchUser } = useAuth();
+  const { width: winW, height: winH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const scale = useFontScale();
+  const { user, patchUser } = useAuth();
   const { t, locale } = useI18n();
   const [sub, setSub] = useState<Sub | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [savingEmoji, setSavingEmoji] = useState(false);
   const [emojiError, setEmojiError] = useState("");
+
+  const sheetPad = spacing.lg;
+  const contentW = Math.min(winW, 480) - sheetPad * 2;
+  const cellSize = Math.floor((contentW - CELL_GAP * (COLS - 1)) / COLS);
+  // Lift sheet above floating tab dock (absolute overlay cannot cover native tab bar)
+  const sheetBottomPad = getDockClearance(scale, insets.bottom);
 
   useFocusEffect(
     useCallback(() => {
-      api<Sub | null>("/api/v1/subscriptions/me")
-        .then(setSub)
-        .catch(() => setSub(null));
+      let alive = true;
+      (async () => {
+        const cached = await loadCachedSubscription();
+        if (alive && cached) setSub(cached);
+        try {
+          const next = await api<Sub | null>("/api/v1/subscriptions/me", {
+            timeoutMs: 12000,
+            retries: 1,
+          });
+          if (!alive) return;
+          setSub(next);
+          void saveCachedSubscription(next);
+        } catch (e: any) {
+          const msg = String(e?.message || "");
+          if (msg === "not_authenticated" || /invalid_refresh|unauthorized/i.test(msg)) {
+            if (alive) setSub(null);
+            void saveCachedSubscription(null);
+          }
+          // Keep cache on timeouts — don't flash Inactive
+        }
+      })();
+      return () => {
+        alive = false;
+      };
     }, [])
   );
 
   const username = user?.email?.split("@")[0] || t("profile.fallbackUser");
   const remaining = daysLeft(sub?.expires_at ?? undefined);
-  const active = sub?.status === "active";
-  const dateLocale = locale === "en" ? "en-US" : "ru-RU";
+  const active = isSubscriptionActive(sub);
   const emoji = user?.profile_emoji || null;
 
-  const pickEmoji = async (next: string) => {
+  const closePicker = () => {
+    setPickerOpen(false);
+    setEmojiError("");
+  };
+
+  /** Optimistic: update UI immediately, sync API in background (never lock the picker). */
+  const pickEmoji = (next: string) => {
     const prev = user?.profile_emoji ?? null;
     const value = next || null;
     setEmojiError("");
-    setSavingEmoji(true);
-    // Instant UI + local cache (works even if API route is not deployed yet)
     patchUser({ profile_emoji: value });
     setPickerOpen(false);
-    try {
-      const updated = await api<UserOut>("/api/v1/auth/me/emoji", {
-        method: "POST",
-        body: JSON.stringify({ emoji: next }),
-      });
-      patchUser({
-        profile_emoji: updated.profile_emoji ?? value,
-      });
+
+    void (async () => {
       try {
-        await refreshMe();
-      } catch {
-        /* already patched locally */
+        const updated = await api<UserOut>("/api/v1/auth/me/emoji", {
+          method: "POST",
+          body: JSON.stringify({ emoji: next }),
+        });
+        patchUser({
+          profile_emoji: updated.profile_emoji ?? value,
+        });
+      } catch (e: unknown) {
+        if (isEmojiEndpointMissing(e)) {
+          return;
+        }
+        patchUser({ profile_emoji: prev });
+        setEmojiError(formatApiError(e, t("common.error")));
+        setPickerOpen(true);
       }
-    } catch (e: any) {
-      if (isEmojiEndpointMissing(e)) {
-        // Keep local emoji until server ships /me/emoji
-        return;
-      }
-      patchUser({ profile_emoji: prev });
-      setPickerOpen(true);
-      setEmojiError(e?.message || t("common.error"));
-    } finally {
-      setSavingEmoji(false);
-    }
+    })();
   };
 
   return (
     <ScreenBackground>
+      <View style={styles.screenRoot}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
         <ScreenTitle>{t("profile.title")}</ScreenTitle>
 
-        <GlassCard style={styles.userCard}>
-          <Pressable
-            style={styles.editBtn}
-            onPress={() => router.push("/(app)/account")}
-            hitSlop={12}
-            accessibilityLabel={t("profile.a11yAccount")}
-          >
-            <Text style={styles.editIcon}>✏️</Text>
-          </Pressable>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{username[0]?.toUpperCase()}</Text>
-          </View>
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{username}</Text>
+        <View style={styles.userCardWrap}>
+          <GlassCard style={styles.userCard}>
             <Pressable
-              onPress={() => setPickerOpen(true)}
-              hitSlop={8}
-              accessibilityLabel={t("profile.pickEmoji")}
-              style={styles.emojiChip}
+              style={styles.editBtn}
+              onPress={() => router.push("/(app)/account")}
+              hitSlop={12}
+              accessibilityLabel={t("profile.a11yAccount")}
             >
-              <RNText style={[styles.emojiChipText, { fontFamily: emojiFont }]}>
-                {emoji || "＋"}
-              </RNText>
+              <IosEmoji emoji="✏️" size={18} />
             </Pressable>
-          </View>
-          <Text style={styles.email}>{user?.email}</Text>
-        </GlassCard>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{username[0]?.toUpperCase()}</Text>
+            </View>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{username}</Text>
+              <Pressable
+                onPress={() => setPickerOpen(true)}
+                hitSlop={8}
+                accessibilityLabel={t("profile.pickEmoji")}
+                style={styles.emojiChip}
+              >
+                {emoji ? (
+                  <IosEmoji emoji={emoji} size={20} />
+                ) : (
+                  <RNText style={styles.emojiChipText} allowFontScaling={false}>
+                    ＋
+                  </RNText>
+                )}
+              </Pressable>
+            </View>
+            <Text style={styles.email}>{user?.email}</Text>
+          </GlassCard>
+        </View>
 
         <Text style={styles.section}>{t("profile.subscription")}</Text>
         <GlassCard>
           <View style={styles.subRow}>
             <Text style={styles.plan}>
-              {sub?.plan_name || t("profile.defaultPlan")}
+              {localizedPlanName(sub, t)}
             </Text>
             <Text style={styles.chevron}>›</Text>
           </View>
           {sub?.expires_at ? (
             <Text style={styles.renew}>
               {t("profile.renewal", {
-                date: new Date(sub.expires_at).toLocaleDateString(dateLocale, {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                }),
+                date: formatProfileDate(sub.expires_at, locale, t),
               })}
             </Text>
           ) : (
@@ -181,6 +227,12 @@ export default function ProfileScreen() {
         </GlassCard>
 
         <PrimaryButton
+          label={t("referral.title")}
+          variant="secondary"
+          onPress={() => router.push("/(app)/referral")}
+          style={{ marginTop: spacing.md }}
+        />
+        <PrimaryButton
           label={
             user?.role === "admin" || user?.role === "support"
               ? t("support.staffChats")
@@ -196,46 +248,48 @@ export default function ProfileScreen() {
           }
           style={{ marginTop: spacing.md }}
         />
-        <PrimaryButton
-          label={t("password.change")}
-          variant="secondary"
-          onPress={() => router.push("/(app)/change-password")}
-          style={{ marginTop: spacing.sm }}
-        />
       </ScrollView>
 
-      <Modal
-        visible={pickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPickerOpen(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+      {/*
+        No RN Modal — on Android + New Arch it often mounts at 0×0 (top-left).
+        Full-screen absolute overlay with explicit pixel size instead.
+      */}
+      {pickerOpen ? (
+        <View style={styles.overlayRoot}>
+          {/* Top half: tap to dismiss — must NOT cover the sheet */}
+          <Pressable
+            style={styles.overlayDismiss}
+            onPress={closePicker}
+            accessibilityRole="button"
+          />
+          <View style={[styles.sheet, { paddingBottom: sheetBottomPad }]}>
+            <View style={styles.sheetHandle} />
             <Text style={styles.modalTitle}>{t("profile.pickEmoji")}</Text>
             {!!emojiError && <Text style={styles.emojiError}>{emojiError}</Text>}
-            <View style={styles.emojiGrid}>
+            <ScrollView
+              style={[styles.emojiScroll, { maxHeight: Math.min(320, Math.round(winH * 0.4)) }]}
+              contentContainerStyle={styles.emojiGrid}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+            >
               {PROFILE_EMOJIS.map((e) => (
                 <Pressable
                   key={e}
                   style={[
                     styles.emojiCell,
+                    { width: cellSize, height: cellSize },
                     emoji === e && styles.emojiCellActive,
                   ]}
-                  disabled={savingEmoji}
                   onPress={() => pickEmoji(e)}
                 >
-                  <RNText style={[styles.emojiCellText, { fontFamily: emojiFont }]}>
-                    {e}
-                  </RNText>
+                  <IosEmoji emoji={e} size={Math.round(cellSize * 0.55)} />
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
             {!!emoji && (
               <PrimaryButton
                 label={t("profile.clearEmoji")}
                 variant="secondary"
-                busy={savingEmoji}
                 onPress={() => pickEmoji("")}
                 style={{ marginTop: spacing.md }}
               />
@@ -243,26 +297,32 @@ export default function ProfileScreen() {
             <PrimaryButton
               label={t("common.backPlain")}
               variant="secondary"
-              onPress={() => setPickerOpen(false)}
+              onPress={closePicker}
               style={{ marginTop: spacing.sm }}
             />
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </View>
+        </View>
+      ) : null}
+      </View>
     </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
   scroll: {
     paddingHorizontal: spacing.screen,
     paddingTop: 60,
     paddingBottom: 100,
   },
+  userCardWrap: {
+    marginBottom: spacing.md,
+  },
   userCard: {
     alignItems: "center",
     paddingVertical: 28,
-    marginBottom: spacing.md,
     position: "relative",
   },
   editBtn: {
@@ -274,14 +334,6 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: "center",
     justifyContent: "center",
-  },
-  editIcon: {
-    fontSize: 20,
-    fontFamily: Platform.select({
-      ios: "System",
-      android: "sans-serif",
-      default: undefined,
-    }),
   },
   avatar: {
     width: 72,
@@ -319,6 +371,7 @@ const styles = StyleSheet.create({
   },
   emojiChipText: {
     fontSize: 18,
+    color: colors.muted,
   },
   name: {
     fontFamily: fonts.displayBold,
@@ -383,19 +436,43 @@ const styles = StyleSheet.create({
   statusActive: {
     color: "#22C55E",
   },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
+  overlayRoot: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+    elevation: 1000,
+    flexDirection: "column",
     justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
-  modalCard: {
+  overlayDismiss: {
+    flexGrow: 1,
+    flexShrink: 1,
+    width: "100%",
+    minHeight: 80,
+  },
+  sheet: {
+    width: "100%",
+    flexGrow: 0,
+    flexShrink: 0,
     backgroundColor: colors.surface,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.glassBorder,
-    padding: spacing.lg,
-    paddingBottom: 36,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 10,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.glassBorder,
+    marginBottom: 12,
   },
   modalTitle: {
     fontFamily: fonts.displayBold,
@@ -411,15 +488,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 13,
   },
+  emojiScroll: {
+    flexGrow: 0,
+  },
   emojiGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 8,
+    gap: CELL_GAP,
+    paddingBottom: 4,
   },
   emojiCell: {
-    width: 48,
-    height: 48,
     borderRadius: 14,
     backgroundColor: colors.glassFill,
     borderWidth: StyleSheet.hairlineWidth,
@@ -430,8 +508,5 @@ const styles = StyleSheet.create({
   emojiCellActive: {
     borderColor: colors.accent,
     backgroundColor: "rgba(123,47,255,0.2)",
-  },
-  emojiCellText: {
-    fontSize: 24,
   },
 });

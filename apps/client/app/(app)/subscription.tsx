@@ -1,28 +1,31 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect, router } from "expo-router";
 import { goBackOr } from "../../src/lib/nav";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { AppText as Text } from "../../src/components/AppText";
+import { BackCircleButton } from "../../src/components/BackCircleButton";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
 import { GlassCard } from "../../src/components/GlassCard";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
-import { useI18n } from "../../src/lib/i18n";
+import { formatProfileDate, useI18n } from "../../src/lib/i18n";
+import {
+  loadCachedSubscription,
+  saveCachedSubscription,
+  type CachedSubscription,
+} from "../../src/lib/subscriptionCache";
 import { colors, fonts, spacing } from "../../src/lib/theme";
 
-type Sub = {
+type Sub = CachedSubscription & {
   id: string;
-  status: string;
   devices: number;
   months: number;
-  plan_name?: string;
-  expires_at?: string;
   has_config: boolean;
 };
 
 export default function SubscriptionScreen() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [sub, setSub] = useState<Sub | null | undefined>(undefined);
   const [error, setError] = useState("");
 
@@ -30,11 +33,19 @@ export default function SubscriptionScreen() {
     useCallback(() => {
       let alive = true;
       (async () => {
+        const cached = await loadCachedSubscription();
+        if (alive && cached) setSub(cached as Sub);
         try {
-          const data = await api<Sub | null>("/api/v1/subscriptions/me");
-          if (alive) setSub(data);
+          const data = await api<Sub | null>("/api/v1/subscriptions/me", {
+            timeoutMs: 12000,
+            retries: 1,
+          });
+          if (!alive) return;
+          setSub(data);
+          void saveCachedSubscription(data);
         } catch (e: any) {
-          if (alive) setError(e?.message || t("common.error"));
+          if (!alive) return;
+          if (!cached) setError(e?.message || t("common.error"));
         }
       })();
       return () => {
@@ -46,9 +57,10 @@ export default function SubscriptionScreen() {
   return (
     <ScreenBackground>
       <View style={styles.wrap}>
-        <Pressable onPress={() => goBackOr("/(app)/(tabs)/profile")} hitSlop={12}>
-          <Text style={styles.back}>{t("common.back")}</Text>
-        </Pressable>
+        <BackCircleButton
+          onPress={() => goBackOr("/(app)/(tabs)/profile")}
+          style={styles.backBtn}
+        />
         <NinaLogo size={24} />
         <ScreenTitle>{t("subscription.title")}</ScreenTitle>
 
@@ -86,7 +98,7 @@ export default function SubscriptionScreen() {
               <Text style={styles.muted}>
                 {t("subscription.until", {
                   date: sub.expires_at
-                    ? new Date(sub.expires_at).toLocaleString()
+                    ? formatProfileDate(sub.expires_at, locale, t)
                     : "—",
                 })}
               </Text>
@@ -119,7 +131,7 @@ export default function SubscriptionScreen() {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, padding: spacing.screen, paddingTop: 56, gap: 14 },
-  back: { color: colors.accent, fontFamily: fonts.bodySemi },
+  backBtn: { marginBottom: 8 },
   stats: { flexDirection: "row", gap: 8 },
   stat: { flex: 1, paddingVertical: 14 },
   statLabel: {

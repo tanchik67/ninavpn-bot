@@ -12,11 +12,15 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, View } from "react-native";
+import { useEffect } from "react";
+import { AppState, StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { BrandSplash } from "../src/components/BrandSplash";
 import { AuthProvider } from "../src/lib/auth";
+import { attachAutoConnectAppState } from "../src/lib/autoConnect";
 import { I18nProvider } from "../src/lib/i18n";
+import { ninaVpnEnsureNetwork } from "../src/lib/ninaVpn";
 import { TextSizeProvider } from "../src/lib/textSize";
-import { colors } from "../src/lib/theme";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -29,41 +33,52 @@ export default function RootLayout() {
     Onest_700Bold,
   });
 
+  useEffect(() => {
+    void ninaVpnEnsureNetwork();
+    const stopAuto = attachAutoConnectAppState();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void ninaVpnEnsureNetwork();
+    });
+    return () => {
+      stopAuto();
+      sub.remove();
+    };
+  }, []);
+
   if (!fontsLoaded) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: colors.bg,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
+    return <BrandSplash />;
   }
 
   return (
+    <GestureHandlerRootView style={styles.root}>
     <TextSizeProvider>
       <I18nProvider>
         <AuthProvider>
           <StatusBar style="light" />
           <Stack
+            detachInactiveScreens={false}
             screenOptions={{
               headerShown: false,
-              contentStyle: { backgroundColor: colors.bg },
+              contentStyle: { backgroundColor: "#000000" },
               animation: "fade",
-              animationDuration: 360,
+              animationDuration: 400,
               animationTypeForReplace: "push",
             }}
           >
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(app)" />
+            <Stack.Screen name="google-auth" options={{ animation: "fade" }} />
+            <Stack.Screen name="tg-auth" options={{ animation: "fade" }} />
+            <Stack.Screen name="+not-found" options={{ animation: "fade" }} />
           </Stack>
         </AuthProvider>
       </I18nProvider>
     </TextSizeProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#000000" },
+});

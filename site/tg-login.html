@@ -50,9 +50,23 @@
       }
 
       window.onTelegramAuth = function (user) {
+        var allowed = [
+          "https://app.ninavpn.store",
+          "http://localhost:8081",
+          "http://127.0.0.1:8081"
+        ];
         try {
           if (window.opener && !window.opener.closed) {
-            window.opener.postMessage({ type: "tg-auth", user: user }, "*");
+            var target = "*";
+            try {
+              if (window.opener.location && allowed.indexOf(window.opener.location.origin) >= 0) {
+                target = window.opener.location.origin;
+              }
+            } catch (e) {
+              /* cross-origin: fall back to app origin */
+              target = "https://app.ninavpn.store";
+            }
+            window.opener.postMessage({ type: "tg-auth", user: user }, target);
             window.close();
             return;
           }

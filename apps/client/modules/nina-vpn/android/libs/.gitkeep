@@ -1,0 +1,2 @@
+# Keep optional local libbox.aar here (gitignored by size).
+# Prefer Maven: net.clever-vpn:libbox-android

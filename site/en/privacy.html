@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy policy — NINAVPN</title>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  <style>
+    .legal-wrap { max-width: 780px; margin: 0 auto; padding: 24px 16px 80px; }
+    .legal-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:32px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+    .lang-switch { display:inline-flex; gap:2px; padding:3px; border-radius:100px; border:1px solid var(--border); }
+    .lang-btn { border:none; background:transparent; color:var(--muted); font:600 0.78rem Onest,sans-serif; padding:7px 12px; border-radius:100px; cursor:pointer; }
+    .lang-btn.active { background:#7B2FFF; color:#fff; }
+    h1 { font-size:1.8rem; margin-bottom:8px; }
+    h2 { font-size:1.1rem; color:#a78bfa; margin:32px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+    p, li { color:#d4d0ee; margin-bottom:10px; }
+    ul { margin:8px 0 16px 20px; }
+    .box { background:rgba(123,47,255,0.12); border:1px solid rgba(123,47,255,0.3); border-radius:8px; padding:12px 16px; margin:16px 0; }
+    .muted { color:var(--muted); font-size:0.9rem; }
+    a { color:#a78bfa; }
+  </style>
+</head>
+<body>
+<div class="legal-wrap">
+  <div class="legal-head">
+    <a class="brand" href="/"><img class="brand-mark" src="/assets/nina-wordmark.png" alt="NinaVPN" width="187" height="28"></a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      <div class="lang-switch">
+        <button type="button" class="lang-btn" onclick="try{localStorage.setItem('nv_site_lang','ru')}catch(e){};location.href='/ninavpn-privacy-2.html'">Русский</button>
+        <button type="button" class="lang-btn active">English</button>
+      </div>
+      <a class="muted" href="/">← Home</a>
+    </div>
+  </div>
+  <h1>Privacy policy</h1>
+  <p class="muted">NINAVPN service · ninavpn.store</p>
+  <p>This Privacy Policy describes how NINAVPN processes and protects personal data of users of <a href="https://ninavpn.store">https://ninavpn.store</a>. Using the Service means you agree to this Policy.</p>
+
+  <h2>What we collect</h2>
+  <p>We collect the minimum needed to provide the Service:</p>
+  <ul>
+    <li>Email on registration or payment</li>
+    <li>IP address for connecting to VDS servers</li>
+    <li>Technical data (device type, OS) that does not identify you personally</li>
+  </ul>
+  <div class="box">🔒 We do <strong>NOT</strong> track traffic, browsing history, DNS queries, or other network activity — that is our <strong>no-logs</strong> promise. We do not sell data to third parties without consent.</div>
+
+  <h2>Purposes</h2>
+  <ul>
+    <li>Providing VDS access and account support</li>
+    <li>Processing payments via payment providers (we do not store card details)</li>
+    <li>Improving the Service using anonymized statistics</li>
+  </ul>
+  <p>Processing follows GDPR principles and applicable Russian personal data law (152-FZ) where relevant.</p>
+
+  <h2>Storage and sharing</h2>
+  <p>Data is stored on secured servers in privacy-friendly jurisdictions (EU where applicable). We do not sell or trade data except where required by law. Payment details go only to payment providers under their policies.</p>
+
+  <h2>Your rights</h2>
+  <ul>
+    <li>Request access, correction, or deletion: <a href="mailto:hssestandards@gmail.com">hssestandards@gmail.com</a></li>
+    <li>Withdraw consent to processing</li>
+    <li>Lodge a complaint with a supervisory authority</li>
+  </ul>
+  <p>Data is kept until account deletion, then destroyed.</p>
+
+  <h2>Cookies</h2>
+  <p>The site may use cookies for preferences (including language). You can control cookies in your browser. Analytics, if any, is anonymized.</p>
+
+  <h2>Changes</h2>
+  <p>We may update this Policy by publishing a new version on the site. Continued use means acceptance.</p>
+  <p>Questions: <a href="mailto:hssestandards@gmail.com">hssestandards@gmail.com</a></p>
+  <p class="muted">Last updated: 7 May 2026</p>
+</div>
+<script>
+  try { localStorage.setItem('nv_site_lang', 'en'); } catch (e) {}
+  document.querySelector('.lang-btn:not(.active)').addEventListener('click', function () {
+    try { localStorage.setItem('nv_site_lang', 'ru'); } catch (e) {}
+  });
+</script>
+</body>
+</html>

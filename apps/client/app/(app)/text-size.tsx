@@ -3,13 +3,13 @@ import { useCallback, useRef, useState } from "react";
 import {
   LayoutChangeEvent,
   PanResponder,
-  Pressable,
   StyleSheet,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText as Text } from "../../src/components/AppText";
 import { AppleSwitch } from "../../src/components/AppleSwitch";
+import { BackCircleButton } from "../../src/components/BackCircleButton";
 import { GlassCard } from "../../src/components/GlassCard";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { useI18n } from "../../src/lib/i18n";
@@ -56,14 +56,7 @@ export default function TextSizeScreen() {
     <ScreenBackground>
       <View style={[styles.wrap, { paddingBottom: bottomClearance }]}>
         <View style={styles.header}>
-          <Pressable
-            onPress={() => goBackOr("/(app)/(tabs)/settings")}
-            style={styles.backCircle}
-            hitSlop={8}
-            accessibilityLabel={t("common.back")}
-          >
-            <Text style={styles.backChevron}>‹</Text>
-          </Pressable>
+          <BackCircleButton onPress={() => goBackOr("/(app)/(tabs)/settings")} />
           <Text style={styles.title}>{t("textSize.title")}</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -120,22 +113,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: spacing.lg,
-  },
-  backCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.glassFill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.glassBorder,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backChevron: {
-    color: colors.text,
-    fontSize: 28,
-    marginTop: -2,
-    fontFamily: fonts.body,
   },
   title: {
     color: colors.text,

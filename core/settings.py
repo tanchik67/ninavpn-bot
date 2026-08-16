@@ -23,7 +23,9 @@ class SaasSettings(BaseSettings):
 
     JWT_SECRET: str = "change-me-in-production-use-long-random-string"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Mobile clients keep the app open for hours; short access TTL causes 401 storms
+    # (refresh races + long client timeouts) that feel like “server not responding”.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     API_CORS_ORIGINS: str = "*"
@@ -38,11 +40,17 @@ class SaasSettings(BaseSettings):
     # Mock gateway when T-Bank not configured
     PAYMENT_MOCK_ENABLED: bool = True
 
+    # Stripe (global cards) — optional; stub works without keys
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+
     BOT_TOKEN: Optional[str] = None
     ADMIN_ID: Optional[int] = None
     ADMIN_IDS: Optional[str] = None
     # Comma-separated emails promoted to admin on login/me
     ADMIN_EMAILS: str = ""
+    # Support chat image attachments directory (defaults to ./data/support_media)
+    SUPPORT_MEDIA_DIR: Optional[str] = None
 
     # OAuth — Google ID token audiences (comma-separated client IDs)
     GOOGLE_CLIENT_IDS: str = ""

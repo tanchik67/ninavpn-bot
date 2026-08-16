@@ -81,13 +81,42 @@
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
   }
-  .logo { font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 1.3rem; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .logo span { -webkit-text-fill-color: var(--accent3); }
+  .logo { display: flex; align-items: center; }
+  .logo img, .footer-logo img, .brand-mark { display: block; height: 28px; width: auto; }
   nav ul { list-style: none; display: flex; gap: 32px; }
   nav ul a { color: var(--muted); text-decoration: none; font-size: 0.88rem; transition: color 0.2s; }
   nav ul a:hover { color: var(--text); }
   .nav-btn { background: var(--accent); color: #fff; border: none; padding: 10px 22px; border-radius: 100px; font-weight: 500; font-size: 0.88rem; transition: all 0.2s; box-shadow: 0 0 20px rgba(123, 47, 255, 0.4); cursor: pointer; }
   .nav-btn:hover { background: var(--accent2); transform: scale(1.02); }
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .lang-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+  }
+  .lang-btn {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .lang-btn.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(123, 47, 255, 0.35);
+  }
+  .lang-btn:hover:not(.active) { color: var(--text); }
 
   .hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 120px 24px 80px; position: relative; overflow: hidden; }
   .hero-glow { position: absolute; width: 700px; height: 700px; background: radial-gradient(circle, rgba(123, 47, 255, 0.18) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; animation: pulseGlow 4s ease-in-out infinite; }
@@ -178,7 +207,8 @@
   .cta-section { text-align: center; padding: 120px 48px; position: relative; }
 
   footer { border-top: 1px solid var(--border); padding: 48px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; font-size: 0.85rem; color: var(--muted); }
-  .footer-logo { font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 1.1rem; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .footer-logo { display: flex; align-items: center; }
+  .footer-logo img { height: 24px; }
   .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
   .footer-links a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
   .footer-links a:hover { color: var(--text); }
@@ -202,7 +232,15 @@
   .checkout-pay-btn:disabled { opacity: 0.6; cursor: wait; }
   .checkout-note { font-size: 0.75rem; color: var(--muted); margin-top: 12px; line-height: 1.5; }
 
-  @media (max-width: 768px) { nav { padding: 16px 20px; } nav ul { display: none; } section, .constructor-wrap, .payment-section { padding: 60px 20px; } .hero { padding-top: 100px; } footer { flex-direction: column; text-align: center; padding: 32px 20px; } }
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    nav ul { display: none; }
+    section, .constructor-wrap, .payment-section { padding: 60px 20px; }
+    .hero { padding-top: 100px; }
+    footer { flex-direction: column; text-align: center; padding: 32px 20px; }
+    .nav-btn { padding: 8px 14px; font-size: 0.8rem; }
+    .lang-btn { padding: 6px 10px; }
+  }
 </style>
 </head>
 <body>
@@ -213,122 +251,134 @@
 <div class="modal-overlay" id="modal">
   <div class="modal" style="position: relative;">
     <button class="modal-close" onclick="closeModal()">✕</button>
-    <h3 style="font-family:'Unbounded'; margin-bottom:8px;">Оплата NINAVPN</h3>
-    <p id="checkoutPlanLine" style="color:var(--muted); font-size:0.9rem;">Выберите тариф на странице</p>
+    <h3 style="font-family:'Unbounded'; margin-bottom:8px;" data-i18n="checkout.title">Оплата NINAVPN</h3>
+    <p id="checkoutPlanLine" style="color:var(--muted); font-size:0.9rem;" data-i18n="checkout.pick">Выберите тариф на странице</p>
     <div class="checkout-summary" id="checkoutSummary"></div>
-    <label for="checkoutEmail" style="font-size:0.8rem; color:var(--muted);">Email для чека и восстановления доступа</label>
+    <label for="checkoutEmail" style="font-size:0.8rem; color:var(--muted);" data-i18n="checkout.emailLabel">Email для чека и восстановления доступа</label>
     <input type="email" id="checkoutEmail" class="checkout-email" placeholder="you@example.com" autocomplete="email">
-    <button type="button" class="checkout-pay-btn" id="checkoutPayBtn">💳 Оплатить картой / СБП (Т-Банк)</button>
+    <button type="button" class="checkout-pay-btn" id="checkoutPayBtn" data-i18n="checkout.pay">💳 Оплатить картой / СБП (Т-Банк)</button>
     <div class="checkout-err" id="checkoutErr"></div>
-    <p class="checkout-note">После оплаты вы попадёте на страницу с VPN-ссылкой. Бот Telegram не нужен.<br>🔒 Без логов · Возврат 24 часа</p>
+    <p class="checkout-note" data-i18n="checkout.note" data-i18n-html="1">После оплаты вы попадёте на страницу с VPN-ссылкой. Бот Telegram не нужен.<br>🔒 Без логов · Возврат 24 часа</p>
   </div>
 </div>
 
 <nav>
-  <div class="logo">NINA<span>VPN</span></div>
-  <ul><li><a href="#features">Фичи</a></li><li><a href="#pricing">Цены</a></li><li><a href="#constructor">Конструктор</a></li><li><a href="#faq">FAQ</a></li></ul>
-  <button class="nav-btn" onclick="openCheckout({plan_key:'6m_3d'})">Оплатить →</button>
+  <div class="logo"><img class="brand-mark" src="/assets/nina-wordmark.png" alt="NinaVPN" width="187" height="28"></div>
+  <ul>
+    <li><a href="#features" data-i18n="nav.features">Фичи</a></li>
+    <li><a href="#pricing" data-i18n="nav.pricing">Цены</a></li>
+    <li><a href="#constructor" data-i18n="nav.constructor">Конструктор</a></li>
+    <li><a href="#faq" data-i18n="nav.faq">FAQ</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn active" data-set-lang="ru">Русский</button>
+      <button type="button" class="lang-btn" data-set-lang="en">English</button>
+    </div>
+    <button class="nav-btn" data-i18n="nav.pay" onclick="openCheckout({plan_key:'6m_3d'})">Оплатить →</button>
+  </div>
 </nav>
 
 <div class="hero">
   <div class="hero-glow"></div>
-  <div class="badge">v2ray protocol · Онлайн</div>
-  <h1><span class="line1">Интернет без</span><br><span class="line2">цензуры</span></h1>
-  <p>VPN на базе v2ray/XTLS — самый устойчивый к блокировкам протокол. Instagram, YouTube, Discord, TikTok — всё летит без тормозов.</p>
+  <div class="badge" data-i18n="hero.badge">v2ray protocol · Онлайн</div>
+  <h1><span class="line1" data-i18n="hero.line1">Интернет без</span><br><span class="line2" data-i18n="hero.line2">цензуры</span></h1>
+  <p data-i18n="hero.sub">VPN на базе v2ray/XTLS — самый устойчивый к блокировкам протокол. Instagram, YouTube, Discord, TikTok — всё летит без тормозов.</p>
   <div class="hero-btns" style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-    <button class="btn-primary" onclick="openCheckout({plan_key:'1m_1d'})">Оплатить — от 100 ₽/мес</button>
-    <button class="btn-ghost" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">Как это работает</button>
+    <button class="btn-primary" data-i18n="hero.ctaPay" onclick="openCheckout({plan_key:'1m_1d'})">Оплатить — от 100 ₽/мес</button>
+    <button class="btn-ghost" data-i18n="hero.ctaHow" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">Как это работает</button>
   </div>
   <br>
   <div class="stats">
-    <div class="stat"><div class="stat-num">10K+</div><div class="stat-label">Активных юзеров</div></div>
-    <div class="stat"><div class="stat-num">99.9%</div><div class="stat-label">Аптайм</div></div>
-    <div class="stat"><div class="stat-num">15+</div><div class="stat-label">Стран серверов</div></div>
-    <div class="stat"><div class="stat-num">0</div><div class="stat-label">Логов активности</div></div>
+    <div class="stat"><div class="stat-num">10K+</div><div class="stat-label" data-i18n="stat.users">Активных юзеров</div></div>
+    <div class="stat"><div class="stat-num">99.9%</div><div class="stat-label" data-i18n="stat.uptime">Аптайм</div></div>
+    <div class="stat"><div class="stat-num">15+</div><div class="stat-label" data-i18n="stat.countries">Стран серверов</div></div>
+    <div class="stat"><div class="stat-num">0</div><div class="stat-label" data-i18n="stat.logs">Логов активности</div></div>
   </div>
 </div>
 
 <section id="features">
-  <div class="section-tag reveal">Почему NINAVPN</div>
-  <h2 class="reveal">Не просто VPN.<br>Настоящая свобода.</h2>
+  <div class="section-tag reveal" data-i18n="features.tag">Почему NINAVPN</div>
+  <h2 class="reveal" data-i18n="features.h2" data-i18n-html="1">Не просто VPN.<br>Настоящая свобода.</h2>
   <div class="features-grid">
-    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">🛡️</span><h3>v2ray + XTLS</h3><p>Самый продвинутый протокол. Трафик выглядит как HTTPS — блокировки бессильны.</p></div>
-    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">⚡</span><h3>Скорость без лимитов</h3><p>Серверы 10 Гбит/с. YouTube 4K, стриминг без буфера.</p></div>
-    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">📱</span><h3>До 10 устройств</h3><p>iPhone, Android, Windows, macOS, роутер. Настройка за минуту.</p></div>
-    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">🔒</span><h3>Абсолютная анонимность</h3><p>No-log политика. Оплата криптой — полная анонимность.</p></div>
+    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">🛡️</span><h3 data-i18n="feat.1.h">v2ray + XTLS</h3><p data-i18n="feat.1.p">Самый продвинутый протокол. Трафик выглядит как HTTPS — блокировки бессильны.</p></div>
+    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">⚡</span><h3 data-i18n="feat.2.h">Скорость без лимитов</h3><p data-i18n="feat.2.p">Серверы 10 Гбит/с. YouTube 4K, стриминг без буфера.</p></div>
+    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">📱</span><h3 data-i18n="feat.3.h">До 10 устройств</h3><p data-i18n="feat.3.p">Пока официальное приложение — Android. iPhone, Windows и macOS в разработке. Роутер — по конфигу.</p></div>
+    <div class="feat-card reveal"><span class="feat-emoji" aria-hidden="true">🔒</span><h3 data-i18n="feat.4.h">Абсолютная анонимность</h3><p data-i18n="feat.4.p">No-log политика. Оплата криптой — полная анонимность.</p></div>
   </div>
 </section>
 
 <section id="how" style="text-align:center">
-  <div class="section-tag reveal" style="justify-content:center">Простое подключение</div>
-  <h2 class="reveal">Работает быстро</h2>
+  <div class="section-tag reveal" style="justify-content:center" data-i18n="how.tag">Простое подключение</div>
+  <h2 class="reveal" data-i18n="how.h2">Работает быстро</h2>
   <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:32px; margin-top:48px;">
-    <div><span class="how-emoji" aria-hidden="true">💳</span><h3>Оплати на сайте</h3><p>СБП или карта РФ через Т-Банк</p></div>
-    <div><span class="how-emoji" aria-hidden="true">🔗</span><h3>Получи ссылку VPN</h3><p>Сразу после оплаты на сайте</p></div>
-    <div><span class="how-emoji" aria-hidden="true">🚀</span><h3>Включи</h3><p>v2rayNG, Streisand и др.</p></div>
-    <div><span class="how-emoji" aria-hidden="true">🎉</span><h3>Всё работает</h3><p>Instagram, TikTok, YouTube</p></div>
+    <div><span class="how-emoji" aria-hidden="true">💳</span><h3 data-i18n="how.1.h">Оплати на сайте</h3><p data-i18n="how.1.p">СБП или карта РФ через Т-Банк</p></div>
+    <div><span class="how-emoji" aria-hidden="true">🔗</span><h3 data-i18n="how.2.h">Получи ссылку VPN</h3><p data-i18n="how.2.p">Сразу после оплаты на сайте</p></div>
+    <div><span class="how-emoji" aria-hidden="true">🚀</span><h3 data-i18n="how.3.h">Включи</h3><p data-i18n="how.3.p">в приложении NinaVPN</p></div>
+    <div><span class="how-emoji" aria-hidden="true">🎉</span><h3 data-i18n="how.4.h">Всё работает</h3><p data-i18n="how.4.p">Instagram, TikTok, YouTube</p></div>
   </div>
 </section>
 
 <section id="pricing" class="pricing-section" style="text-align:center">
-  <div class="section-tag reveal" style="justify-content:center">Честные цены</div>
-  <h2 class="reveal">Выбери свой план</h2>
+  <div class="section-tag reveal" style="justify-content:center" data-i18n="pricing.tag">Честные цены</div>
+  <h2 class="reveal" data-i18n="pricing.h2">Выбери свой план</h2>
   <div class="pricing-grid">
-    <div class="price-card reveal"><div class="price-period">Месяц</div><div class="price-amount">100 ₽</div><ul class="price-features"><li>1 устройство</li><li>Все серверы</li><li>Безлимит</li></ul><button class="btn-plan btn-plan-primary" onclick="openCheckout({plan_key:'1m_1d'})">Оплатить</button></div>
-    <div class="price-card popular reveal"><div class="popular-badge">🔥 Хит</div><div class="price-amount">500 ₽</div><div style="font-size:0.8rem;">6 месяцев</div><ul class="price-features"><li>3 устройства</li><li>Приоритетная поддержка</li><li>Экономия 100 ₽</li></ul><button class="btn-plan btn-plan-primary" onclick="openCheckout({plan_key:'6m_3d'})">Оплатить →</button></div>
-    <div class="price-card reveal"><div class="price-amount">1000 ₽</div><div>12 месяцев</div><ul class="price-features"><li>5 устройств</li><li>Реферальная программа</li><li>Экономия 200 ₽</li></ul><button class="btn-plan btn-plan-primary" onclick="openCheckout({plan_key:'12m_5d'})">Оплатить</button></div>
+    <div class="price-card reveal"><div class="price-period" data-i18n="plan.month">Месяц</div><div class="price-amount">100 ₽</div><ul class="price-features"><li data-i18n="plan.f1">1 устройство</li><li data-i18n="plan.f2">Все серверы</li><li data-i18n="plan.f3">Безлимит</li></ul><button class="btn-plan btn-plan-primary" data-i18n="plan.pay" onclick="openCheckout({plan_key:'1m_1d'})">Оплатить</button></div>
+    <div class="price-card popular reveal"><div class="popular-badge" data-i18n="plan.hit">🔥 Хит</div><div class="price-amount">500 ₽</div><div style="font-size:0.8rem;" data-i18n="plan.6m">6 месяцев</div><ul class="price-features"><li data-i18n="plan.f4">до 3 устройств</li><li data-i18n="plan.f5">Приоритетная поддержка</li><li data-i18n="plan.f6">Экономия 100 ₽</li></ul><button class="btn-plan btn-plan-primary" data-i18n="plan.payArrow" onclick="openCheckout({plan_key:'6m_3d'})">Оплатить →</button></div>
+    <div class="price-card reveal"><div class="price-amount">1000 ₽</div><div data-i18n="plan.12m">12 месяцев</div><ul class="price-features"><li data-i18n="plan.f7">до 5 устройств</li><li data-i18n="plan.f8">Реферальная программа</li><li data-i18n="plan.f9">Экономия 200 ₽</li></ul><button class="btn-plan btn-plan-primary" data-i18n="plan.pay" onclick="openCheckout({plan_key:'12m_5d'})">Оплатить</button></div>
   </div>
 </section>
 
 <div class="constructor-wrap" id="constructor">
   <div class="constructor-inner">
-    <div class="section-tag reveal" style="justify-content:center">Конструктор тарифа</div>
-    <h2 class="reveal" style="text-align:center;">Собери свой план</h2>
+    <div class="section-tag reveal" style="justify-content:center" data-i18n="ctor.tag">Конструктор тарифа</div>
+    <h2 class="reveal" style="text-align:center;" data-i18n="ctor.h2">Собери свой план</h2>
     <div class="c-controls">
-      <div class="c-block"><div class="c-block-label">Период подписки</div><div class="period-pills" id="periodGroup"><button class="pill" data-months="1">1 мес</button><button class="pill active" data-months="6">6 мес</button><button class="pill" data-months="12">12 мес</button></div></div>
-      <div class="c-block"><div class="c-block-label">Количество устройств: <span id="devCountLabel">3</span></div><input type="range" id="devSlider" min="1" max="10" value="3" step="1"><div style="display:flex; justify-content:space-between; margin-top:8px;"><span>1</span><span>3</span><span>5</span><span>7</span><span>10</span></div></div>
+      <div class="c-block"><div class="c-block-label" data-i18n="ctor.period">Период подписки</div><div class="period-pills" id="periodGroup"><button class="pill" data-months="1" data-i18n="ctor.m1">1 мес</button><button class="pill active" data-months="6" data-i18n="ctor.m6">6 мес</button><button class="pill" data-months="12" data-i18n="ctor.m12">12 мес</button></div></div>
+      <div class="c-block"><div class="c-block-label"><span data-i18n="ctor.devices">Количество устройств:</span> <span id="devCountLabel">3</span></div><input type="range" id="devSlider" min="1" max="10" value="3" step="1"><div style="display:flex; justify-content:space-between; margin-top:8px;"><span>1</span><span>3</span><span>5</span><span>7</span><span>10</span></div></div>
     </div>
     <div class="c-result">
-      <div><div class="c-result-title">Итого</div><div class="c-price-big" id="totalPriceRub">500 ₽</div><div class="c-price-sub" id="priceDetail">~83 ₽/мес · 3 устройства · 6 мес</div><div class="c-tags"><span class="c-tag" id="savingTag" style="background:rgba(47,240,212,0.1); padding:4px 12px; border-radius:40px;">Экономия 100 ₽</span></div></div>
-      <button class="c-buy-btn" id="constructorBuyBtn">Купить сейчас →</button>
+      <div><div class="c-result-title" data-i18n="ctor.total">Итого</div><div class="c-price-big" id="totalPriceRub">500 ₽</div><div class="c-price-sub" id="priceDetail">~83 ₽/мес · 3 устройства · 6 мес</div><div class="c-tags"><span class="c-tag" id="savingTag" style="background:rgba(47,240,212,0.1); padding:4px 12px; border-radius:40px;">Экономия 100 ₽</span></div></div>
+      <button class="c-buy-btn" id="constructorBuyBtn" data-i18n="ctor.buy">Купить сейчас →</button>
     </div>
   </div>
 </div>
 
 <div class="payment-section">
-  <div class="section-tag reveal" style="justify-content:center">Оплата из России</div>
-  <h2 class="reveal">Платишь как удобно, без санкций</h2>
-  <div class="payment-methods"><div class="pay-badge">📱 СБП</div><div class="pay-badge">💳 Карты РФ (Visa / МИР)</div><div class="pay-badge">💎 USDT / TON</div></div>
+  <div class="section-tag reveal" style="justify-content:center" data-i18n="pay.tag">Оплата из России</div>
+  <h2 class="reveal" data-i18n="pay.h2">Платишь как удобно, без санкций</h2>
+  <div class="payment-methods"><div class="pay-badge" data-i18n="pay.sbp">📱 СБП</div><div class="pay-badge" data-i18n="pay.cards">💳 Карты РФ (Visa / МИР)</div><div class="pay-badge" data-i18n="pay.crypto">💎 USDT / TON</div></div>
 </div>
 
 <section id="faq" style="text-align:center">
-  <div class="section-tag reveal" style="justify-content:center">FAQ</div>
-  <h2 class="reveal">Частые вопросы</h2>
+  <div class="section-tag reveal" style="justify-content:center" data-i18n="faq.tag">FAQ</div>
+  <h2 class="reveal" data-i18n="faq.h2">Частые вопросы</h2>
   <div class="faq-list">
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Что такое v2ray?<div class="faq-arrow">+</div></div><div class="faq-a">v2ray — прокси-фреймворк с протоколами VLESS/XTLS, маскирует трафик под HTTPS, обходит DPI.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Это законно?<div class="faq-arrow">+</div></div><div class="faq-a">Использование VPN для личных нужд в РФ не преследуется.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">На каких устройствах работает?<div class="faq-arrow">+</div></div><div class="faq-a">iOS, Android, Windows, macOS, Linux, роутеры.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Храните ли логи?<div class="faq-arrow">+</div></div><div class="faq-a">Нет, строгая no-log политика. Полная анонимность.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span data-i18n="faq.q1">Что такое v2ray?</span><div class="faq-arrow">+</div></div><div class="faq-a" data-i18n="faq.a1">v2ray — прокси-фреймворк с протоколами VLESS/XTLS, маскирует трафик под HTTPS, обходит DPI.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span data-i18n="faq.q2">Это законно?</span><div class="faq-arrow">+</div></div><div class="faq-a" data-i18n="faq.a2">Использование VPN для личных нужд в РФ не преследуется.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span data-i18n="faq.q3">На каких устройствах работает?</span><div class="faq-arrow">+</div></div><div class="faq-a" data-i18n="faq.a3">Сейчас — Android. Приложения для iPhone, Windows и macOS в разработке. Роутер можно настроить по конфигу.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span data-i18n="faq.q4">Храните ли логи?</span><div class="faq-arrow">+</div></div><div class="faq-a" data-i18n="faq.a4">Нет, строгая no-log политика. Полная анонимность.</div></div>
   </div>
 </section>
 
 <div class="cta-section">
-  <h2 class="reveal">Разблокируй всё прямо сейчас</h2>
-  <p class="reveal">От 100 рублей в месяц. Меньше чем чашка кофе.</p>
-  <button class="btn-primary reveal" onclick="openCheckout({plan_key:'6m_3d'})" style="font-size:1.1rem; margin-top:24px;">Оплатить подписку →</button>
+  <h2 class="reveal" data-i18n="cta.h2">Разблокируй всё прямо сейчас</h2>
+  <p class="reveal" data-i18n="cta.p">От 100 рублей в месяц. Меньше чем чашка кофе.</p>
+  <button class="btn-primary reveal" data-i18n="cta.btn" onclick="openCheckout({plan_key:'6m_3d'})" style="font-size:1.1rem; margin-top:24px;">Оплатить подписку →</button>
 </div>
 
 <footer>
-  <div class="footer-logo">NINAVPN</div>
+  <div class="footer-logo"><img class="brand-mark" src="/assets/nina-wordmark.png" alt="NinaVPN" width="187" height="28"></div>
   <div class="footer-links">
-    <a href="ninavpn-oferta-2.html">Публичная оферта</a>
-    <a href="ninavpn-privacy-2.html">Политика конфиденциальности</a>
-    <a href="ninavpn-terms-2.html">Условия использования</a>
-    <a href="#">Telegram</a>
+    <a href="ninavpn-oferta-2.html" data-legal="oferta" data-i18n="foot.oferta">Публичная оферта</a>
+    <a href="ninavpn-privacy-2.html" data-legal="privacy" data-i18n="foot.privacy">Политика конфиденциальности</a>
+    <a href="ninavpn-terms-2.html" data-legal="terms" data-i18n="foot.terms">Условия использования</a>
+    <a href="https://t.me/ninavpn_official" data-tg="channel" data-i18n="foot.tg" target="_blank" rel="noopener noreferrer">Telegram</a>
   </div>
-  <span>© 2026 NINAVPN · Работает в РФ · ОГРНИП 326565800043202</span>
+  <span data-i18n="foot.copy">© 2026 NINAVPN · Работает в РФ · ОГРНИП 326565800043202</span>
 </footer>
 
+<script src="assets/i18n.js"></script>
 <script>
   // cursor effect
   const cur = document.getElementById('cursor'), ring = document.getElementById('cursorRing');
@@ -350,22 +400,31 @@
   };
 
   // Checkout modal (Т-Банк на сайте)
-  const PLAN_LABELS = {
-    '1m_1d': '1 месяц · 1 устройство · 100 ₽',
-    '6m_3d': '6 месяцев · 3 устройства · 500 ₽',
-    '12m_5d': '12 месяцев · 5 устройств · 1000 ₽',
+  function tt(key, vars) {
+    return (window.nvI18n && nvI18n.t) ? nvI18n.t(key, vars) : key;
+  }
+
+  const PLAN_LABEL_KEYS = {
+    '1m_1d': 'planLabel.1m',
+    '6m_3d': 'planLabel.6m',
+    '12m_5d': 'planLabel.12m',
   };
   let checkoutPayload = { plan_key: '6m_3d' };
 
   function formatCheckoutSummary(payload) {
-    if (payload.plan_key && PLAN_LABELS[payload.plan_key]) {
-      return PLAN_LABELS[payload.plan_key];
+    if (payload.plan_key && PLAN_LABEL_KEYS[payload.plan_key]) {
+      return tt(PLAN_LABEL_KEYS[payload.plan_key]);
     }
     if (payload.months && payload.devices) {
       const total = calculatePrice(payload.months, payload.devices);
-      return `${payload.months} мес · ${payload.devices} уст. · ${total.toLocaleString('ru')} ₽`;
+      const loc = (window.nvI18n && nvI18n.getLang() === 'en') ? 'en-US' : 'ru-RU';
+      return tt('ctor.detail', {
+        perMonth: Math.round(total / payload.months),
+        devices: payload.devices,
+        months: payload.months,
+      }) + ' · ' + total.toLocaleString(loc) + ' ₽';
     }
-    return 'Тариф';
+    return tt('checkout.pick');
   }
 
   window.openCheckout = function(payload) {
@@ -373,7 +432,7 @@
     const line = document.getElementById('checkoutPlanLine');
     const summary = document.getElementById('checkoutSummary');
     const err = document.getElementById('checkoutErr');
-    if (line) line.textContent = 'Оплата картой или СБП через Т-Банк';
+    if (line) line.textContent = tt('checkout.tbankLine');
     if (summary) summary.textContent = formatCheckoutSummary(checkoutPayload);
     if (err) err.textContent = '';
     document.getElementById('modal').classList.add('active');
@@ -385,7 +444,7 @@
     document.getElementById('modal').classList.remove('active');
     document.body.style.overflow = '';
     const btn = document.getElementById('checkoutPayBtn');
-    if (btn) { btn.disabled = false; btn.textContent = '💳 Оплатить картой / СБП (Т-Банк)'; }
+    if (btn) { btn.disabled = false; btn.textContent = tt('checkout.pay'); }
   };
 
   window.openModal = () => openCheckout({ plan_key: '6m_3d' });
@@ -397,11 +456,11 @@
     const errEl = document.getElementById('checkoutErr');
     const btn = document.getElementById('checkoutPayBtn');
     if (!email || !email.includes('@')) {
-      if (errEl) errEl.textContent = 'Укажите корректный email';
+      if (errEl) errEl.textContent = tt('checkout.badEmail');
       return;
     }
     const body = { email, ...checkoutPayload };
-    if (btn) { btn.disabled = true; btn.textContent = 'Переход к оплате…'; }
+    if (btn) { btn.disabled = true; btn.textContent = tt('checkout.paying'); }
     if (errEl) errEl.textContent = '';
     try {
       const r = await fetch('/api/checkout/tbank', {
@@ -414,11 +473,11 @@
         window.location.href = data.payment_url;
         return;
       }
-      if (errEl) errEl.textContent = data.message || 'Не удалось создать оплату';
-      if (btn) { btn.disabled = false; btn.textContent = '💳 Оплатить картой / СБП (Т-Банк)'; }
+      if (errEl) errEl.textContent = data.message || tt('checkout.fail');
+      if (btn) { btn.disabled = false; btn.textContent = tt('checkout.pay'); }
     } catch (e) {
-      if (errEl) errEl.textContent = 'Ошибка сети. Попробуйте ещё раз.';
-      if (btn) { btn.disabled = false; btn.textContent = '💳 Оплатить картой / СБП (Т-Банк)'; }
+      if (errEl) errEl.textContent = tt('checkout.net');
+      if (btn) { btn.disabled = false; btn.textContent = tt('checkout.pay'); }
     }
   }
   document.getElementById('checkoutPayBtn')?.addEventListener('click', startCheckout);
@@ -459,16 +518,21 @@
     const totalForMonthsIfMonthly = monthlyPriceSameDev * months;
     const actualTotal = calculatePrice(months, devCount);
     const saved = totalForMonthsIfMonthly - actualTotal;
-    if (saved > 0) return `🎉 Экономия ${saved} ₽ по сравнению с помесячной оплатой`;
+    if (saved > 0) return tt('ctor.saving', { saved });
     return null;
   }
 
   function updateConstructor() {
     const total = calculatePrice(selectedMonths, devices);
     const perMonth = calculateMonthlyEquivalent(total, selectedMonths);
+    const loc = (window.nvI18n && nvI18n.getLang() === 'en') ? 'en-US' : 'ru-RU';
     if (devCountLabel) devCountLabel.innerText = devices;
-    totalPriceSpan.innerText = total.toLocaleString('ru') + ' ₽';
-    priceDetailSpan.innerText = `~${perMonth} ₽/мес · ${devices} уст. · ${selectedMonths} мес`;
+    totalPriceSpan.innerText = total.toLocaleString(loc) + ' ₽';
+    priceDetailSpan.innerText = tt('ctor.detail', {
+      perMonth,
+      devices,
+      months: selectedMonths,
+    });
     const saving = getSavingText(selectedMonths, devices);
     if (saving && savingTagSpan) {
       savingTagSpan.style.display = 'inline-block';
@@ -476,7 +540,6 @@
     } else if (savingTagSpan) {
       savingTagSpan.style.display = 'none';
     }
-    // range background visual
     if (devSlider) {
       const percent = ((devices - 1) / 9) * 100;
       devSlider.style.background = `linear-gradient(to right, var(--accent) ${percent}%, rgba(123,47,255,0.18) ${percent}%)`;
@@ -515,6 +578,10 @@
     openCheckout({ months: selectedMonths, devices });
   };
   document.getElementById('constructorBuyBtn')?.addEventListener('click', buyConstructor);
+
+  window.nvOnLangChange = function () {
+    updateConstructor();
+  };
 </script>
 </body>
 </html>

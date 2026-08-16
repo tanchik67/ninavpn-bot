@@ -20,20 +20,44 @@ _cache_mono: float = 0.0
 _cache_text: str = ""
 
 
-def _xui_login_probe_url(node: XuiNodeConfig) -> str:
+def _xui_probe_urls(node: XuiNodeConfig) -> list[str]:
+    """URLs to probe panel liveness (base path first — /login may 404 on some 3x-ui builds)."""
     base = node.url.rstrip("/")
     px = (node.path_prefix or "").strip().strip("/")
     if px:
-        return f"{base}/{px}/login"
-    return f"{base}/login"
+        return [f"{base}/{px}/", f"{base}/{px}/login", f"{base}/"]
+    return [f"{base}/", f"{base}/login"]
 
 
-async def ping_http_ms(url: str) -> Optional[float]:
+async def ping_tcp_ms(host: str, port: int, timeout: float = 2.5) -> Optional[float]:
+    """TCP connect RTT — works when HTTP/TLS to the panel is broken."""
+    h = (host or "").strip()
+    if not h or not port:
+        return None
+    t0 = time.monotonic()
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(h, int(port)),
+            timeout=timeout,
+        )
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
+        del reader
+    except Exception:
+        return None
+    return (time.monotonic() - t0) * 1000.0
+
+
+async def ping_http_ms(url: str, *, verify: Optional[bool] = None) -> Optional[float]:
     """Время GET до ответа (мс) или None при ошибке/таймауте."""
     u = (url or "").strip()
     if not u:
         return None
-    verify = bool(settings.SERVER_PING_VERIFY_SSL)
+    if verify is None:
+        verify = bool(settings.SERVER_PING_VERIFY_SSL)
     timeout = float(settings.SERVER_PING_TIMEOUT_SEC or 4.0)
     t0 = time.monotonic()
     try:
@@ -52,7 +76,26 @@ async def ping_http_ms(url: str) -> Optional[float]:
 
 
 async def ping_xui_node_ms(node: XuiNodeConfig) -> Optional[float]:
-    return await ping_http_ms(_xui_login_probe_url(node))
+    verify = node.verify_ssl
+    if verify is None:
+        verify = bool(settings.SERVER_PING_VERIFY_SSL)
+    for url in _xui_probe_urls(node):
+        ms = await ping_http_ms(url, verify=verify)
+        if ms is not None:
+            return ms
+    # HTTP to panel often fails (bad TLS / HTTP-only). TCP to the same host:port still
+    # gives a useful latency for the cabinet list.
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(node.url)
+        host = parsed.hostname
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        if host:
+            return await ping_tcp_ms(host, int(port))
+    except Exception:
+        pass
+    return None
 
 
 async def ping_marzban_api_ms() -> Optional[float]:

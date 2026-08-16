@@ -33,6 +33,15 @@ export default function WelcomeScreen() {
             onPress={() => router.push("/(auth)/login")}
             style={{ marginTop: 8 }}
           />
+          <Pressable
+            onPress={() => router.push("/(auth)/signup")}
+            style={styles.registerBtn}
+            hitSlop={8}
+          >
+            <Text style={styles.registerText} numberOfLines={1} adjustsFontSizeToFit>
+              {t("welcome.register")}
+            </Text>
+          </Pressable>
           {locale === "ru" ? (
             <Pressable
               onPress={() => setLocale("en")}
@@ -87,8 +96,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 4,
   },
+  registerBtn: {
+    marginTop: 16,
+    alignSelf: "center",
+    paddingVertical: 10,
+  },
+  registerText: {
+    color: colors.accent,
+    fontFamily: fonts.bodySemi,
+    fontSize: 15,
+  },
   langBtn: {
-    marginTop: 20,
+    marginTop: 12,
     alignSelf: "center",
     paddingVertical: 8,
   },

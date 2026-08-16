@@ -9,7 +9,14 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { IosEmoji } from "../../../src/components/IosEmoji";
 import { useT } from "../../../src/lib/i18n";
 import { getDockHeight, useFontScale } from "../../../src/lib/textSize";
 import { colors, fonts } from "../../../src/lib/theme";
@@ -48,22 +55,9 @@ function TabItem({
       ]}
       pointerEvents="none"
     >
-      <Text
-        style={{
-          fontSize: iconSize,
-          lineHeight: iconSize + 4,
-          opacity: focused ? 1 : EMOJI_IDLE,
-          fontFamily: Platform.select({
-            ios: "System",
-            android: "sans-serif",
-            default: undefined,
-          }),
-          textAlign: "center",
-          includeFontPadding: false,
-        }}
-      >
-        {emoji}
-      </Text>
+      <View style={{ opacity: focused ? 1 : EMOJI_IDLE }}>
+        <IosEmoji emoji={emoji} size={iconSize} />
+      </View>
       <Text
         style={{
           fontFamily: fonts.bodySemi,
@@ -115,6 +109,10 @@ function TabButton({
     pathname === `/${tabKey}` ||
     pathname.endsWith(`/${tabKey}`) ||
     !!accessibilityState?.selected;
+  const press = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: press.value }],
+  }));
 
   return (
     <Pressable
@@ -122,15 +120,23 @@ function TabButton({
       accessibilityState={{ ...accessibilityState, selected: focused }}
       onPress={onPress}
       onLongPress={onLongPress}
+      onPressIn={() => {
+        press.value = withTiming(0.9, { duration: 90 });
+      }}
+      onPressOut={() => {
+        press.value = withSpring(1, { damping: 14, stiffness: 280 });
+      }}
       style={[style, styles.tabButton]}
     >
-      <TabItem
-        emoji={emoji}
-        label={label}
-        focused={focused}
-        scale={scale}
-        landscape={landscape}
-      />
+      <Animated.View style={pressStyle}>
+        <TabItem
+          emoji={emoji}
+          label={label}
+          focused={focused}
+          scale={scale}
+          landscape={landscape}
+        />
+      </Animated.View>
     </Pressable>
   );
 }
@@ -154,14 +160,17 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // Avoid Android Fabric crash: "No view found for id … ScreenStackFragment"
+      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: colors.bg },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: LABEL_IDLE,
         tabBarShowLabel: false,
-        // Soft cross-fade / shift between Home · Profile · Settings
-        animation: Platform.OS === "web" ? "fade" : "shift",
+        // Soft cross-fade between Home / Profile / Settings (avoid "shift" — Fabric crash)
+        animation: "fade",
+        animationDuration: 320,
         tabBarStyle: [
           styles.tabBar,
           {

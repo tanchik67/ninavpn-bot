@@ -10,7 +10,8 @@
     *{margin:0;padding:0;box-sizing:border-box}
     body{background:var(--bg);color:var(--text);font-family:'Onest',sans-serif;font-size:1rem;line-height:1.7;padding:0 16px}
     header{display:flex;align-items:center;justify-content:space-between;padding:20px 0;border-bottom:1px solid var(--border);margin-bottom:40px}
-    .logo{font-size:1.3rem;font-weight:700;background:linear-gradient(135deg,#7B2FFF,#A855F7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+    .logo{font-size:1.3rem;font-weight:900;letter-spacing:-0.04em;background:none;-webkit-text-fill-color:unset;text-decoration:none;display:inline-flex;align-items:center}
+    .logo img,.logo .brand-mark{display:block;height:28px;width:auto}
     .back-btn{color:var(--muted);text-decoration:none;font-size:0.9rem}
     .back-btn:hover{color:var(--text)}
     main{max-width:780px;margin:0 auto;padding-bottom:80px}
@@ -29,13 +30,19 @@
 </head>
 <body>
 <header>
-  <a href="/" class="logo">NINAVPN</a>
-  <a href="/" class="back-btn">← На главную</a>
+  <a href="/" class="logo"><img class="brand-mark" src="/assets/nina-wordmark.png" alt="NinaVPN" width="187" height="28"></a>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div style="display:inline-flex;gap:2px;padding:3px;border-radius:100px;border:1px solid var(--border);">
+      <button type="button" style="border:none;background:#7B2FFF;color:#fff;font:600 0.72rem Onest,sans-serif;padding:7px 10px;border-radius:100px;cursor:pointer;">Русский</button>
+      <button type="button" id="toEn" style="border:none;background:transparent;color:var(--muted);font:600 0.72rem Onest,sans-serif;padding:7px 10px;border-radius:100px;cursor:pointer;">English</button>
+    </div>
+    <a href="/" class="back-btn">← На главную</a>
+  </div>
 </header>
 <main>
   <h1>Условия использования</h1>
   <p class="subtitle">Сервис NINAVPN · ninavpn.store</p>
-  <p>Настоящие Условия использования регулируют порядок предоставления услуг VDS-сервиса NINAVPN, доступного по адресу <a href="https://ninavpn.store">https://ninavpn.store</a>. Использование Сервиса подразумевает полное согласие с Условиями, <a href="/privacy.html">Политикой конфиденциальности</a> и актуальными тарифами.</p>
+  <p>Настоящие Условия использования регулируют порядок предоставления услуг VDS-сервиса NINAVPN, доступного по адресу <a href="https://ninavpn.store">https://ninavpn.store</a>. Использование Сервиса подразумевает полное согласие с Условиями, <a href="/ninavpn-privacy-2.html">Политикой конфиденциальности</a> и актуальными тарифами.</p>
 
   <h2>Предмет соглашения</h2>
   <p>Сервис предоставляет доступ к VDS-серверам на базе протоколов v2ray/XTLS для шифрования трафика, обхода блокировок (Instagram, YouTube, TikTok) и смены IP-адреса. Услуги включают подключение до 10 устройств на аккаунт по тарифам от 100 ₽/мес с оплатой СБП или картой РФ. No-logs политика гарантирует отсутствие записи трафика.</p>
@@ -69,5 +76,12 @@
   <p class="date">Последнее обновление: 7 мая 2026 г.</p>
 </main>
 <footer>© 2026 NINAVPN · ИНН: 561103417110</footer>
+<script>
+  try { localStorage.setItem('nv_site_lang', 'ru'); } catch (e) {}
+  document.getElementById('toEn')?.addEventListener('click', function () {
+    try { localStorage.setItem('nv_site_lang', 'en'); } catch (e) {}
+    location.href = '/en/terms.html';
+  });
+</script>
 </body>
 </html>

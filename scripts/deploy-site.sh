@@ -4,7 +4,7 @@
 #   cd /path/to/ninavpn-bot && ./scripts/deploy-site.sh
 #
 # Переменные (как в deploy-remote.sh):
-#   REMOTE_HOST=2.27.123.28  REMOTE_USER=root  REMOTE_PATH=/opt/ninavpn-bot
+#   REMOTE_HOST=2.27.122.201  REMOTE_USER=root  REMOTE_PATH=/opt/ninavpn-bot
 
 set -euo pipefail
 
@@ -25,8 +25,9 @@ fi
 echo "→ site/ → ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/site/"
 # shellcheck disable=SC2029
 ssh "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p ${REMOTE_PATH}/site"
-# shellcheck disable=SC2029
-scp "${SITE_DIR}/"*.html "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/site/"
+rsync -avz --delete \
+  --exclude '.DS_Store' \
+  "${SITE_DIR}/" "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/site/"
 
 echo "→ nginx ninavpn.store.conf"
 # shellcheck disable=SC2029
@@ -39,5 +40,7 @@ ssh "${REMOTE_USER}@${REMOTE_HOST}" "nginx -t && systemctl reload nginx"
 echo ""
 echo "Готово. Проверьте:"
 echo "  https://ninavpn.store/"
-echo "  https://ninavpn.store/ninavpn-oferta-2.html"
+echo "  https://ninavpn.store/en/"
+echo "  https://ninavpn.store/status.html"
+echo "  https://ninavpn.store/how-we-work.html"
 echo "  https://ninavpn.store/miniapp/  (Mini App по-прежнему через бота)"

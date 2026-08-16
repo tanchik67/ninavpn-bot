@@ -61,6 +61,7 @@ class XuiPanel(VpnPanel):
             self._panel_verify_ssl = bool(getattr(settings, "XUI_VERIFY_SSL", True))
         self._client: httpx.AsyncClient | None = None
         self._lock = asyncio.Lock()
+        self._csrf_token: str | None = None
 
     @property
     def node_label(self) -> str:
@@ -86,28 +87,98 @@ class XuiPanel(VpnPanel):
             )
         return self._client
 
+    async def _fetch_csrf_token(self, c: httpx.AsyncClient) -> str | None:
+        """3x-ui ≥3.x requires X-CSRF-Token on mutating requests."""
+        try:
+            r = await c.get(
+                self._path("/csrf-token"),
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+            if r.status_code != 200:
+                return None
+            body = r.json()
+            tok = body.get("obj") if isinstance(body, dict) else None
+            if isinstance(tok, str) and tok.strip():
+                self._csrf_token = tok.strip()
+                return self._csrf_token
+        except Exception as e:
+            log.debug("3x-ui csrf-token [%s]: %s", self._label, e)
+        return None
+
+    def _csrf_headers(self, extra: dict[str, str] | None = None) -> dict[str, str]:
+        h = {"X-Requested-With": "XMLHttpRequest"}
+        if self._csrf_token:
+            h["X-CSRF-Token"] = self._csrf_token
+        if extra:
+            h.update(extra)
+        return h
+
+    async def _post(self, path: str, **kwargs: Any) -> httpx.Response:
+        """POST with CSRF (fetch/retry once on 403)."""
+        c = await self._get_client()
+        if not self._csrf_token:
+            await self._fetch_csrf_token(c)
+        headers = dict(kwargs.pop("headers", None) or {})
+        headers.update(self._csrf_headers())
+        r = await c.post(path, headers=headers, **kwargs)
+        if r.status_code == 403:
+            self._csrf_token = None
+            await self._fetch_csrf_token(c)
+            headers.update(self._csrf_headers())
+            r = await c.post(path, headers=headers, **kwargs)
+        return r
+
     async def _login(self) -> None:
         c = await self._get_client()
+        # Session cookie + CSRF (newer panels reject bare POST /login with 403)
+        try:
+            await c.get(self._path("/"))
+        except Exception:
+            pass
+        await self._fetch_csrf_token(c)
         path = self._path("/login")
         data = {
             "username": self._user,
             "password": self._password,
             "twoFactorCode": self._2fa or "",
         }
-        r = await c.post(path, data=data)
-        r.raise_for_status()
+        r = await self._post(path, data=data)
+        if r.status_code >= 400:
+            # Legacy panels without CSRF still accept form login
+            if self._csrf_token:
+                self._csrf_token = None
+                r = await c.post(path, data=data)
+            r.raise_for_status()
         try:
             body = r.json()
         except Exception:
             raise RuntimeError("3x-ui: ответ логина не JSON") from None
         if not body.get("success", True):
             raise RuntimeError(body.get("msg") or "3x-ui: вход не выполнен")
+        # Token may rotate after login
+        await self._fetch_csrf_token(c)
+
+    def _session_needs_login(self, response: httpx.Response) -> bool:
+        if response.status_code in (401, 403, 404):
+            return True
+        if response.status_code != 200:
+            return False
+        try:
+            body = response.json()
+        except Exception:
+            return False
+        if isinstance(body, dict) and body.get("success") is False:
+            return True
+        return False
 
     async def _ensure_session(self) -> httpx.AsyncClient:
         async with self._lock:
             c = await self._get_client()
-            test = await c.get(self._path("/panel/api/inbounds/list"))
-            if test.status_code == 404:
+            test = await c.get(
+                self._path("/panel/api/inbounds/list"),
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+            if self._session_needs_login(test):
                 await self._login()
             return c
 
@@ -134,7 +205,8 @@ class XuiPanel(VpnPanel):
             "totalGB": 0,
             "expiryTime": expiry_ms,
             "enable": enable,
-            "tgId": str(tg_id),
+            # 3x-ui ≥3.6 clients API expects int64; older inbound API accepted string
+            "tgId": int(tg_id) if tg_id is not None else 0,
             "subId": sub_id,
             "reset": 0,
         }
@@ -441,14 +513,46 @@ class XuiPanel(VpnPanel):
             log.warning("3x-ui refresh_share_links [%s]: %s", self._label, e)
             return [], ""
 
+    def _normalize_client_obj(self, client_obj: dict[str, Any]) -> dict[str, Any]:
+        cl = dict(client_obj)
+        raw_tg = cl.get("tgId", cl.get("tg_id", 0))
+        try:
+            cl["tgId"] = int(raw_tg or 0)
+        except (TypeError, ValueError):
+            cl["tgId"] = 0
+        return cl
+
     async def _add_client(
-        self, c: httpx.AsyncClient, client_obj: dict[str, Any]
+        self,
+        c: httpx.AsyncClient,
+        client_obj: dict[str, Any],
+        *,
+        inbound_ids: list[int] | None = None,
     ) -> None:
-        payload = {
-            "id": self._inbound_id,
-            "settings": json.dumps({"clients": [client_obj]}),
+        """
+        3x-ui ≥3.6 moved client CRUD to /panel/api/clients/*.
+        Fall back to legacy /panel/api/inbounds/addClient when needed.
+        """
+        cl = self._normalize_client_obj(client_obj)
+        email = str(cl.get("email") or "").strip()
+        if not email:
+            raise RuntimeError("3x-ui addClient: email required")
+
+        ids = [int(x) for x in (inbound_ids or [self._inbound_id])]
+        new_payload = {
+            "email": email,
+            "inboundIds": ids,
+            "client": cl,
         }
-        r = await c.post(self._path("/panel/api/inbounds/addClient"), json=payload)
+        r = await self._post(self._path("/panel/api/clients/add"), json=new_payload)
+        if r.status_code == 404:
+            legacy = {
+                "id": self._inbound_id,
+                "settings": json.dumps({"clients": [cl]}),
+            }
+            r = await self._post(
+                self._path("/panel/api/inbounds/addClient"), json=legacy
+            )
         if r.status_code != 200:
             raise RuntimeError(f"3x-ui addClient: HTTP {r.status_code} {r.text[:200]}")
         try:
@@ -461,19 +565,49 @@ class XuiPanel(VpnPanel):
     async def _update_client(
         self, c: httpx.AsyncClient, client_uuid: str, client_obj: dict[str, Any]
     ) -> None:
-        payload = {
-            "id": self._inbound_id,
-            "settings": json.dumps({"clients": [client_obj]}),
+        cl = self._normalize_client_obj(client_obj)
+        email = str(cl.get("email") or "").strip()
+        new_payload = {
+            "email": email,
+            "inboundIds": [int(self._inbound_id)],
+            "client": cl,
         }
-        path = self._path(f"/panel/api/inbounds/updateClient/{client_uuid}")
-        r = await c.post(path, json=payload)
-        if r.status_code != 200:
-            raise RuntimeError(f"3x-ui updateClient: HTTP {r.status_code} {r.text[:200]}")
+        r = await self._post(
+            self._path(f"/panel/api/clients/update/{client_uuid}"), json=new_payload
+        )
+        body: dict[str, Any] = {}
         try:
-            body = r.json()
+            body = r.json() if r.content else {}
         except Exception:
-            return
-        if not body.get("success", True):
+            body = {}
+        msg = str(body.get("msg") or "").lower()
+        # Newer panels: update may 404 / "not found"; /clients/add attaches to inbound
+        if r.status_code == 404 or (
+            r.status_code == 200 and not body.get("success", True) and "not found" in msg
+        ):
+            r = await self._post(self._path("/panel/api/clients/add"), json=new_payload)
+            try:
+                body = r.json() if r.content else {}
+            except Exception:
+                body = {}
+        if r.status_code == 404:
+            legacy = {
+                "id": self._inbound_id,
+                "settings": json.dumps({"clients": [cl]}),
+            }
+            r = await self._post(
+                self._path(f"/panel/api/inbounds/updateClient/{client_uuid}"),
+                json=legacy,
+            )
+            try:
+                body = r.json() if r.content else {}
+            except Exception:
+                body = {}
+        if r.status_code != 200:
+            raise RuntimeError(
+                f"3x-ui updateClient: HTTP {r.status_code} {r.text[:200]}"
+            )
+        if body and not body.get("success", True):
             raise RuntimeError(body.get("msg") or "3x-ui updateClient failed")
 
     def _find_client_in_inbound(
@@ -565,7 +699,13 @@ class XuiPanel(VpnPanel):
             return ""
 
     async def create_or_extend_subscription(
-        self, tg_id: int, months: int, devices: int, *, tg_username: str | None = None
+        self,
+        tg_id: int,
+        months: int,
+        devices: int,
+        *,
+        tg_username: str | None = None,
+        inbound_ids: list[int] | None = None,
     ) -> dict[str, Any]:
         c = await self._ensure_session()
         inbound = await self._get_inbound_json(c)
@@ -599,16 +739,21 @@ class XuiPanel(VpnPanel):
         new_exp = now_ms + add_ms
         cl = self._client_dict(tg_id, email, devices, new_exp, client_uuid, sub_id)
         try:
-            await self._add_client(c, cl)
+            await self._add_client(c, cl, inbound_ids=inbound_ids)
         except RuntimeError as e:
-            if "Duplicate" in str(e) or "duplicate" in str(e).lower():
+            err = str(e).lower()
+            if "duplicate" in err or "already in use" in err:
                 inbound = await self._get_inbound_json(c)
                 existing, client_uuid, _ = await self._resolve_panel_client(
                     inbound, tg_id, tg_username=tg_username
                 )
                 if existing and client_uuid:
                     return await self.create_or_extend_subscription(
-                        tg_id, months, devices, tg_username=tg_username
+                        tg_id,
+                        months,
+                        devices,
+                        tg_username=tg_username,
+                        inbound_ids=inbound_ids,
                     )
             raise
         link = self._subscription_link(sub_id)
@@ -686,7 +831,7 @@ class XuiPanel(VpnPanel):
             path = self._path(
                 f"/panel/api/inbounds/{self._inbound_id}/delClientByEmail/{em}"
             )
-            r = await c.post(path)
+            r = await self._post(path)
             return r.status_code == 200
         except Exception as e:
             log.warning("3x-ui delete_client [%s]: %s", self._label, e)
@@ -821,12 +966,38 @@ class MultiXuiPanel(VpnPanel):
         )
         return [p for p, _ in ordered]
 
+    def _panel_group_key(self, p: XuiPanel) -> tuple[str, str]:
+        return (p.node.url.rstrip("/"), (p.node.path_prefix or "").strip().strip("/"))
+
     async def create_or_extend_subscription(
         self, tg_id: int, months: int, devices: int, *, tg_username: str | None = None
     ) -> dict[str, Any]:
         panels = await self._sorted_panels()
+        # One physical 3x-ui hosts many inbounds: create client once with all inboundIds
+        by_host: dict[tuple[str, str], list[XuiPanel]] = {}
+        for p in panels:
+            by_host.setdefault(self._panel_group_key(p), []).append(p)
+
+        if len(by_host) == 1 and len(panels) > 1:
+            primary_panel = panels[0]
+            inbound_ids = [
+                int(p.node.inbound_id or 0) for p in panels if p.node.inbound_id
+            ]
+            return await primary_panel.create_or_extend_subscription(
+                tg_id,
+                months,
+                devices,
+                tg_username=tg_username,
+                inbound_ids=inbound_ids or None,
+            )
+
         results = await asyncio.gather(
-            *[p.create_or_extend_subscription(tg_id, months, devices, tg_username=tg_username) for p in panels],
+            *[
+                p.create_or_extend_subscription(
+                    tg_id, months, devices, tg_username=tg_username
+                )
+                for p in panels
+            ],
             return_exceptions=True,
         )
         ok: list[dict[str, Any]] = []

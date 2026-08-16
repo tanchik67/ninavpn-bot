@@ -7,30 +7,59 @@
     "scheme": "ninavpn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#000000",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "NinaVPN needs photo access to send images in support chat."
+        }
+      ],
+      "./plugins/withNinaVpnAndroid.js"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "store.ninavpn.app"
+      "bundleIdentifier": "store.ninavpn.app",
+      "icon": "./assets/icon.png"
     },
     "android": {
-      "package": "store.ninavpn.app"
+      "package": "store.ninavpn.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ]
     },
     "extra": {
       "apiUrl": "https://ninavpn.store",
-      "googleWebClientId": "",
-      "telegramBotUsername": "",
-      "tgLoginUrl": "https://ninavpn.store/tg-login.html"
+      "googleWebClientId": "866746263233-33tvrl2thaall11mlq85ee7npu8kn2p8.apps.googleusercontent.com",
+      "telegramBotUsername": "NinaVPN_bot",
+      "tgLoginUrl": "https://ninavpn.store/tg-login.html",
+      "googleLoginUrl": "https://ninavpn.store/google-login.html"
     }
   }
 }

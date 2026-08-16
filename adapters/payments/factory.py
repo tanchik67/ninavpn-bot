@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from adapters.payments.mock import MockPaymentGateway
+from adapters.payments.stripe import StripePaymentGateway
 from adapters.payments.tbank import TbankPaymentGateway
 from core.ports.payments import PaymentGateway
 from core.settings import saas_settings
@@ -28,13 +29,20 @@ def get_payment_gateway(provider: Optional[str] = None) -> PaymentGateway:
     """
     Resolution:
     - provider=mock → always mock
-    - provider=tbank → T-Bank (error if missing keys unless mock fallback allowed)
+    - provider=stripe → Stripe stub / Checkout when keys set
+    - provider=tbank → T-Bank
     - provider omitted → T-Bank if keys exist and PAYMENT_MOCK_ENABLED=false; else mock
     """
     name = (provider or "").strip().lower()
 
     if name == "mock":
         return MockPaymentGateway()
+
+    if name == "stripe":
+        return StripePaymentGateway(
+            secret_key=saas_settings.STRIPE_SECRET_KEY,
+            webhook_secret=saas_settings.STRIPE_WEBHOOK_SECRET,
+        )
 
     tbank = _tbank_from_bot_settings()
 
@@ -45,7 +53,6 @@ def get_payment_gateway(provider: Optional[str] = None) -> PaymentGateway:
             return MockPaymentGateway()
         raise RuntimeError("TBANK_TERMINAL_KEY / TBANK_PASSWORD not configured")
 
-    # default auto
     if tbank and not saas_settings.PAYMENT_MOCK_ENABLED:
         return tbank
     return MockPaymentGateway()

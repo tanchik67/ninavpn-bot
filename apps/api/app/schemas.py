@@ -3,7 +3,22 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, TypeAdapter, field_validator
+
+_email_adapter = TypeAdapter(EmailStr)
+
+
+def _normalize_login_email(value: str) -> str:
+    """Accept real emails and Telegram placeholder accounts (tg_*@telegram.local)."""
+    email = (value or "").strip().lower()
+    if not email:
+        raise ValueError("email required")
+    if email.endswith("@telegram.local") or email.endswith("@tg.ninavpn.store"):
+        local = email.split("@", 1)[0]
+        if not local.startswith("tg_") or len(local) < 4:
+            raise ValueError("invalid telegram placeholder email")
+        return email
+    return str(_email_adapter.validate_python(email)).lower()
 
 
 class RegisterRequest(BaseModel):
@@ -12,8 +27,13 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str = Field(min_length=3, max_length=320)
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_login_email(cls, v: str) -> str:
+        return _normalize_login_email(v)
 
 
 class GoogleAuthRequest(BaseModel):
@@ -42,7 +62,8 @@ class TokenResponse(BaseModel):
 
 class UserOut(BaseModel):
     id: UUID
-    email: EmailStr
+    # str (not EmailStr): Telegram users use placeholder emails like tg_*@telegram.local
+    email: str
     role: str
     tg_id: Optional[int] = None
     panel_user_key: int
@@ -106,9 +127,19 @@ class SubscriptionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ConfigNodeOut(BaseModel):
+    id: str
+    flag: str = "🌐"
+    city: str
+    uri: str
+    protocol: str = "VLESS"
+    protocols: list[str] = []
+
+
 class ConfigOut(BaseModel):
     subscription_url: Optional[str] = None
     links: list[str] = []
+    nodes: list[ConfigNodeOut] = []
     qr_base64: Optional[str] = None
     deeplinks: dict[str, str] = {}
     expires_at: Optional[datetime] = None
@@ -179,10 +210,35 @@ class SupportMessageOut(BaseModel):
     body: str
     created_at: datetime
     is_staff: bool = False
+    image_url: Optional[str] = None
+    client_msg_id: Optional[str] = None
 
 
 class SupportReplyRequest(BaseModel):
-    body: str = Field(min_length=1, max_length=5000)
+    body: str = Field(default="", max_length=5000)
+    image_base64: Optional[str] = Field(default=None, max_length=12_000_000)
+    image_mime: Optional[str] = Field(default="image/jpeg", max_length=64)
+    # From POST .../upload — preferred over base64 on mobile
+    image_token: Optional[str] = Field(default=None, max_length=80)
+    # Mobile retries send the same id — server returns the existing row (no TG spam)
+    client_msg_id: Optional[str] = Field(default=None, max_length=64)
+
+
+class SupportPhotoChunkRequest(BaseModel):
+    """Small JSON chunks — MIUI often drops multipart / large bodies."""
+
+    client_msg_id: str = Field(min_length=4, max_length=64)
+    index: int = Field(ge=0, le=64)
+    total: int = Field(ge=1, le=64)
+    data: str = Field(min_length=1, max_length=4500)
+    body: str = Field(default="", max_length=5000)
+    image_mime: str = Field(default="image/jpeg", max_length=64)
+
+
+class SupportPhotoChunkAck(BaseModel):
+    ok: bool = True
+    received: int
+    total: int
 
 
 class SupportChatOut(BaseModel):

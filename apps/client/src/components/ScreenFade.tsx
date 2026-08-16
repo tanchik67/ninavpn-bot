@@ -1,5 +1,5 @@
 import { useFocusEffect } from "expo-router";
-import { ReactNode, useCallback } from "react";
+import { ReactNode, useCallback, useRef } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
   Easing,
@@ -14,27 +14,28 @@ type Props = {
   duration?: number;
 };
 
+const EASE = Easing.bezier(0.22, 1, 0.36, 1);
+
 /**
- * Soft fade/slide-in whenever a screen gains focus (tabs + stack).
- * Complements native stack/tab animations, especially on web.
+ * Soft fade/slide-in on first mount; a gentler settle when the screen is focused again
+ * (tab return / stack pop) so content does not blink from zero.
  */
-export function ScreenFade({ children, duration = 320 }: Props) {
+export function ScreenFade({ children, duration = 340 }: Props) {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(10);
+  const first = useRef(true);
 
   useFocusEffect(
     useCallback(() => {
-      opacity.value = 0;
-      translateY.value = 10;
-      opacity.value = withTiming(1, {
-        duration,
-        easing: Easing.out(Easing.cubic),
-      });
-      translateY.value = withTiming(0, {
-        duration,
-        easing: Easing.out(Easing.cubic),
-      });
-      // No fade-out on blur — native stack/tab animations handle exit
+      const isFirst = first.current;
+      first.current = false;
+      const fromOp = isFirst ? 0 : 0.94;
+      const fromY = isFirst ? 8 : 3;
+      const dur = isFirst ? duration : Math.round(duration * 0.68);
+      opacity.value = fromOp;
+      translateY.value = fromY;
+      opacity.value = withTiming(1, { duration: dur, easing: EASE });
+      translateY.value = withTiming(0, { duration: dur + 40, easing: EASE });
     }, [duration, opacity, translateY])
   );
 

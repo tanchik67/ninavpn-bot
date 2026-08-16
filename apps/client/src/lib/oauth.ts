@@ -1,3 +1,4 @@
+import * as AuthSession from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
@@ -7,11 +8,24 @@ import { API_URL } from "./api";
 WebBrowser.maybeCompleteAuthSession();
 
 const EXTRA = Constants.expoConfig?.extra as
-  | { googleWebClientId?: string; telegramBotUsername?: string; tgLoginUrl?: string }
+  | {
+      googleWebClientId?: string;
+      googleAndroidClientId?: string;
+      googleIosClientId?: string;
+      telegramBotUsername?: string;
+      tgLoginUrl?: string;
+      googleLoginUrl?: string;
+    }
   | undefined;
 
 export const GOOGLE_WEB_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || EXTRA?.googleWebClientId || "";
+
+export const GOOGLE_ANDROID_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || EXTRA?.googleAndroidClientId || "";
+
+export const GOOGLE_IOS_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || EXTRA?.googleIosClientId || "";
 
 export const TELEGRAM_BOT_USERNAME =
   process.env.EXPO_PUBLIC_TELEGRAM_BOT_USERNAME || EXTRA?.telegramBotUsername || "";
@@ -20,6 +34,12 @@ export const TG_LOGIN_URL =
   process.env.EXPO_PUBLIC_TG_LOGIN_URL ||
   EXTRA?.tgLoginUrl ||
   "https://ninavpn.store/tg-login.html";
+
+/** HTTPS bridge page — Web OAuth client redirect; then deep-links back to the app. */
+export const GOOGLE_LOGIN_URL =
+  process.env.EXPO_PUBLIC_GOOGLE_LOGIN_URL ||
+  EXTRA?.googleLoginUrl ||
+  "https://ninavpn.store/google-login.html";
 
 export type TelegramAuthPayload = {
   id: number;
@@ -31,11 +51,18 @@ export type TelegramAuthPayload = {
   hash: string;
 };
 
-/** Call only when GOOGLE_WEB_CLIENT_ID is non-empty (parent must gate mount). */
+/** Web / Expo: Google ID token via AuthSession (needs matching redirect URIs). */
 export function useGoogleIdTokenAuth() {
+  const redirectUri = AuthSession.makeRedirectUri({
+    preferLocalhost: false,
+    ...(Platform.OS !== "web" ? { scheme: "ninavpn", path: "oauthredirect" } : {}),
+  });
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: GOOGLE_WEB_CLIENT_ID,
     webClientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
+    iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
+    redirectUri,
   });
 
   const idToken =
@@ -46,10 +73,42 @@ export function useGoogleIdTokenAuth() {
   return {
     ready: !!request,
     configured: !!GOOGLE_WEB_CLIENT_ID,
+    redirectUri,
     response,
     idToken,
     promptAsync,
   };
+}
+
+/**
+ * Native Google sign-in via hosted HTTPS page (Web client ID + authorized redirect).
+ * Avoids Android "invalid_request / OAuth policy" when only a Web client exists.
+ */
+export async function openGoogleLoginNative(): Promise<string> {
+  if (!GOOGLE_WEB_CLIENT_ID) {
+    throw new Error("google_not_configured");
+  }
+  const appRedirect = "ninavpn://google-auth";
+  const url =
+    `${GOOGLE_LOGIN_URL}?client_id=${encodeURIComponent(GOOGLE_WEB_CLIENT_ID)}` +
+    `&redirect=${encodeURIComponent(appRedirect)}`;
+  const result = await WebBrowser.openAuthSessionAsync(url, appRedirect);
+  if (result.type !== "success" || !result.url) {
+    throw new Error("google_cancelled");
+  }
+  return parseGoogleIdTokenFromUrl(result.url);
+}
+
+export function parseGoogleIdTokenFromUrl(url: string): string {
+  const q = url.includes("?") ? url.split("?")[1].split("#")[0] : "";
+  const hash = url.includes("#") ? url.split("#")[1] : "";
+  const params = new URLSearchParams(q);
+  const hashParams = new URLSearchParams(hash);
+  const token = params.get("id_token") || hashParams.get("id_token");
+  if (!token) {
+    throw new Error("google_no_token");
+  }
+  return token;
 }
 
 /**
@@ -71,6 +130,13 @@ export async function openTelegramLogin(): Promise<TelegramAuthPayload> {
         return;
       }
       const onMsg = (ev: MessageEvent) => {
+        const allowed = new Set([
+          "https://ninavpn.store",
+          "https://app.ninavpn.store",
+          "http://localhost:8081",
+          "http://127.0.0.1:8081",
+        ]);
+        if (ev.origin && !allowed.has(ev.origin)) return;
         if (!ev.data || ev.data.type !== "tg-auth") return;
         window.removeEventListener("message", onMsg);
         try {

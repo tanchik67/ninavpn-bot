@@ -51,6 +51,7 @@ from database import (
     PlanTariff,
     AsyncSessionLocal,
 )
+from core.services.config_links import apply_links_to_subscription, read_links_from_subscription
 from services.catalog import (
     get_plans_catalog,
     get_payment_method_entries,
@@ -294,6 +295,7 @@ async def send_config_ready_bundle(
     devices: int,
     *,
     extra_link: Optional[str] = None,
+    more_links: Optional[list[str]] = None,
     partial_nodes: bool = False,
     reply_markup=None,
 ) -> None:
@@ -317,11 +319,17 @@ async def send_config_ready_bundle(
             main,
             disable_web_page_preview=True,
         )
-    extra = (extra_link or "").strip()
-    if extra:
+    extras: list[str] = []
+    if (extra_link or "").strip():
+        extras.append(extra_link.strip())
+    for L in more_links or []:
+        s = (L or "").strip()
+        if s and s != main and s not in extras:
+            extras.append(s)
+    for url in extras:
         await bot.send_message(
             chat_id,
-            extra,
+            url,
             disable_web_page_preview=True,
         )
 
@@ -338,7 +346,6 @@ async def _upsert_subscription_after_promo(
     now = datetime.utcnow()
     devices = max(1, min(10, int(devices)))
     main = (primary or "").strip() or (links[0] if links else "")
-    extra = links[1] if len(links) > 1 else None
 
     active = (
         await s.execute(
@@ -353,26 +360,21 @@ async def _upsert_subscription_after_promo(
     if active:
         sub = max(active, key=lambda x: x.expires_at or now)
         sub.expires_at = expires_at
-        if main:
-            sub.config_link = main
-        if extra is not None:
-            sub.config_link_extra = extra
+        apply_links_to_subscription(sub, links, primary=main)
         sub.devices = devices
     else:
-        s.add(
-            Subscription(
-                user_tg_id=tg_id,
-                plan_key="promo",
-                devices=devices,
-                months=0,
-                price_paid=0.0,
-                config_link=main,
-                config_link_extra=extra,
-                started_at=now,
-                expires_at=expires_at,
-                is_active=True,
-            )
+        sub = Subscription(
+            user_tg_id=tg_id,
+            plan_key="promo",
+            devices=devices,
+            months=0,
+            price_paid=0.0,
+            started_at=now,
+            expires_at=expires_at,
+            is_active=True,
         )
+        apply_links_to_subscription(sub, links, primary=main)
+        s.add(sub)
 
 
 async def issue_config(bot: Bot, tg_id: int, plan_key: str,
@@ -435,8 +437,7 @@ async def issue_config(bot: Bot, tg_id: int, plan_key: str,
     links = [L for L in (result.get("links") or []) if L]
     if not links and result.get("subscription_url"):
         links = [result["subscription_url"]]
-    link = links[0] if links else ""
-    link_extra = links[1] if len(links) > 1 else None
+    primary = (result.get("subscription_url") or "").strip() or (links[0] if links else "")
     partial_nodes = bool(result.get("partial"))
     node_errors = result.get("node_errors") or []
 
@@ -448,12 +449,14 @@ async def issue_config(bot: Bot, tg_id: int, plan_key: str,
             months=months,
             price_paid=price_rub,
             marzban_uuid=result.get("uuid"),
-            config_link=link,
-            config_link_extra=link_extra,
             started_at=datetime.utcnow(),
             expires_at=expires,
             is_active=True,
         )
+        apply_links_to_subscription(sub, links, primary=primary)
+        link = sub.config_link or ""
+        link_extra = sub.config_link_extra
+        more = [L for L in read_links_from_subscription(sub) if L not in {link, link_extra}]
         s.add(sub)
 
         await s.execute(
@@ -475,6 +478,7 @@ async def issue_config(bot: Bot, tg_id: int, plan_key: str,
             expires_str,
             devices,
             extra_link=link_extra,
+            more_links=more,
             partial_nodes=partial_nodes,
             reply_markup=kb_after_config(),
         )
@@ -1426,14 +1430,19 @@ async def cb_getconf(cb: CallbackQuery, bot: Bot):
             dev,
         )
     refresh = getattr(panel, "refresh_share_links_for_tg", None)
-    main_link = (sub.config_link or "").strip()
-    extra_link = (sub.config_link_extra or "").strip() or None
-    urls_for_qr: list[str] = []
+    stored = read_links_from_subscription(sub)
+    main_link = (sub.config_link or "").strip() or (stored[0] if stored else "")
+    urls_for_qr: list[str] = list(stored)
     if refresh:
         fresh, _ = await refresh(sub.user_tg_id)
         if fresh:
+            apply_links_to_subscription(sub, fresh, primary=fresh[0])
+            async with AsyncSessionLocal() as s:
+                db_sub = await s.get(Subscription, sub.id)
+                if db_sub:
+                    apply_links_to_subscription(db_sub, fresh, primary=fresh[0])
+                    await s.commit()
             main_link = fresh[0]
-            extra_link = fresh[1] if len(fresh) > 1 else None
             urls_for_qr = list(fresh)
     if not main_link:
         await cq_edit_message(
@@ -1443,7 +1452,9 @@ async def cb_getconf(cb: CallbackQuery, bot: Bot):
         )
         return
     if not urls_for_qr:
-        urls_for_qr = [main_link] + ([extra_link] if extra_link else [])
+        urls_for_qr = [main_link]
+    extra_link = urls_for_qr[1] if len(urls_for_qr) > 1 else None
+    more = urls_for_qr[2:] if len(urls_for_qr) > 2 else []
     expires_str = sub.expires_at.strftime("%d.%m.%Y") if sub.expires_at else "—"
     await send_config_ready_bundle(
         bot,
@@ -1452,6 +1463,7 @@ async def cb_getconf(cb: CallbackQuery, bot: Bot):
         expires_str,
         sub.devices,
         extra_link=extra_link,
+        more_links=more,
         partial_nodes=False,
         reply_markup=None,
     )
@@ -1838,6 +1850,7 @@ async def msg_promo_input(message: Message):
         expires_str,
         1,
         extra_link=links[1] if len(links) > 1 else None,
+        more_links=links[2:] if len(links) > 2 else None,
         partial_nodes=False,
         reply_markup=kb_after_config(),
     )

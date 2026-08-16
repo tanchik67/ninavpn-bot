@@ -7,9 +7,29 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { getSessionUserId, onSessionUserId } from "../sessionUser";
 import { dictionaries, type Dictionary, type Locale } from "./dictionaries";
 
 const STORAGE_KEY = "nv_locale";
+const LOCALES: Locale[] = ["ru", "en", "es", "tr", "fa", "zh"];
+
+function isLocale(v: string | null): v is Locale {
+  return !!v && (LOCALES as string[]).includes(v);
+}
+
+function keyFor(userId: string | null) {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
+
+async function readLocale(userId: string | null): Promise<Locale> {
+  try {
+    const saved = await AsyncStorage.getItem(keyFor(userId));
+    if (isLocale(saved)) return saved;
+  } catch {
+    /* defaults */
+  }
+  return "ru";
+}
 
 type Vars = Record<string, string | number>;
 
@@ -44,22 +64,28 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved === "ru" || saved === "en") setLocaleState(saved);
-      } catch {
-        /* keep default */
-      } finally {
+    let alive = true;
+    const load = async (userId: string | null) => {
+      const next = await readLocale(userId);
+      if (alive) {
+        setLocaleState(next);
         setReady(true);
       }
-    })();
+    };
+    void load(getSessionUserId());
+    const stop = onSessionUserId((id) => {
+      void load(id);
+    });
+    return () => {
+      alive = false;
+      stop();
+    };
   }, []);
 
   const setLocale = useCallback(async (next: Locale) => {
     setLocaleState(next);
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, next);
+      await AsyncStorage.setItem(keyFor(getSessionUserId()), next);
     } catch {
       /* ignore */
     }
@@ -68,8 +94,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const t = useCallback(
     (path: string, vars?: Vars) => {
       const dict = dictionaries[locale];
+      // Prefer active locale → English → Russian (never leave half-RU UI for other langs)
       const raw =
-        lookup(dict, path) ?? lookup(dictionaries.ru, path) ?? path;
+        lookup(dict, path) ??
+        (locale !== "en" ? lookup(dictionaries.en, path) : undefined) ??
+        lookup(dictionaries.ru, path) ??
+        path;
       return interpolate(raw, vars);
     },
     [locale]

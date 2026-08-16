@@ -8,10 +8,12 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from adapters.payments.factory import get_payment_gateway
-from core.domain.enums import PaymentStatus, ProvisionJobStatus
+from core.domain.enums import PaymentStatus, ProvisionJobStatus, SubscriptionStatus
 from core.services.audit import write_audit
+from core.services.config_links import read_links_from_subscription
 from core.settings import saas_settings
 from infrastructure.db.models import Payment, Plan, ProvisionJob, Subscription, User
 from infrastructure.redis.client import get_redis
@@ -23,26 +25,92 @@ class BillingError(Exception):
         super().__init__(message or code)
 
 
+_PRESET_PLAN_KEYS = ("1m_1d", "6m_3d", "12m_5d")
+
+
 async def list_active_plans(session: AsyncSession) -> list[Plan]:
+    """Catalog for the app: only ready-made presets (hide constructor rows)."""
+    await sync_preset_plan_copy(session)
     rows = await session.scalars(
-        select(Plan).where(Plan.is_active.is_(True)).order_by(Plan.sort_order, Plan.price_rub)
+        select(Plan)
+        .where(Plan.is_active.is_(True), Plan.plan_key.in_(_PRESET_PLAN_KEYS))
+        .order_by(Plan.sort_order, Plan.price_rub)
     )
     return list(rows)
+
+
+def _default_plans_catalog() -> dict:
+    try:
+        from config import PLANS
+
+        return dict(PLANS)
+    except Exception:
+        return {
+            "1m_1d": {
+                "name": "Старт",
+                "months": 1,
+                "devices": 1,
+                "price_rub": 100,
+                "description": "1 мес · 1 устройство",
+            },
+            "6m_3d": {
+                "name": "Хит",
+                "months": 6,
+                "devices": 3,
+                "price_rub": 500,
+                "description": "6 мес · до 3 устройств",
+            },
+            "12m_5d": {
+                "name": "Год",
+                "months": 12,
+                "devices": 5,
+                "price_rub": 1000,
+                "description": "12 мес · до 5 устройств",
+            },
+        }
+
+
+async def sync_preset_plan_copy(session: AsyncSession) -> None:
+    """Keep preset plan names/descriptions in sync with config (incl. «до N устройств»)."""
+    catalog = _default_plans_catalog()
+    changed = False
+    for i, key in enumerate(_PRESET_PLAN_KEYS):
+        p = catalog.get(key) or {}
+        row = await session.scalar(select(Plan).where(Plan.plan_key == key))
+        desc = p.get("description")
+        name = p.get("name") or key
+        if row is None:
+            session.add(
+                Plan(
+                    plan_key=key,
+                    name=name,
+                    description=desc,
+                    months=int(p.get("months") or 1),
+                    devices=int(p.get("devices") or 1),
+                    price_rub=float(p.get("price_rub") or 0),
+                    is_active=True,
+                    sort_order=i,
+                )
+            )
+            changed = True
+            continue
+        if row.description != desc or row.name != name or not row.is_active:
+            row.name = name
+            row.description = desc
+            row.is_active = True
+            row.sort_order = i
+            changed = True
+    if changed:
+        await session.commit()
 
 
 async def seed_default_plans(session: AsyncSession) -> None:
     """Seed from bot PLANS if saas_plans empty."""
     count = await session.scalar(select(Plan.id).limit(1))
     if count:
+        await sync_preset_plan_copy(session)
         return
-    try:
-        from config import PLANS
-    except Exception:
-        PLANS = {
-            "1m_1d": {"name": "Старт", "months": 1, "devices": 1, "price_rub": 100, "description": "1 мес · 1 устр."},
-            "6m_3d": {"name": "Хит", "months": 6, "devices": 3, "price_rub": 500, "description": "6 мес · 3 устр."},
-            "12m_5d": {"name": "Год", "months": 12, "devices": 5, "price_rub": 1000, "description": "12 мес · 5 устр."},
-        }
+    PLANS = _default_plans_catalog()
     for i, (key, p) in enumerate(PLANS.items()):
         session.add(
             Plan(
@@ -312,3 +380,17 @@ async def latest_subscription(session: AsyncSession, user_id: UUID) -> Optional[
         .order_by(Subscription.created_at.desc())
         .limit(1)
     )
+
+
+def subscription_allows_vpn(sub: Optional[Subscription]) -> bool:
+    """True only for a live, unexpired subscription that has node links."""
+    if sub is None:
+        return False
+    if sub.status not in (
+        SubscriptionStatus.ACTIVE.value,
+        SubscriptionStatus.TRIAL.value,
+    ):
+        return False
+    if sub.expires_at and sub.expires_at <= datetime.utcnow():
+        return False
+    return bool(read_links_from_subscription(sub) or sub.config_qr)

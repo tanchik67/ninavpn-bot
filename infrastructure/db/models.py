@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -58,6 +59,8 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     # Optional emoji next to display name (Telegram-style status)
     profile_emoji: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    # When the invitee's first paid sub granted +days to the referrer
+    referral_rewarded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     @property
     def has_password(self) -> bool:
@@ -117,6 +120,8 @@ class Subscription(Base):
     panel_uuid: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     config_link: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     config_link_extra: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Full list of share / subscription URLs (multi-inbound 3x-ui)
+    config_links: Mapped[Optional[list]] = mapped_column(JsonType, nullable=True)
     config_qr: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -191,6 +196,14 @@ class SupportTicket(Base):
 
 class SupportMessage(Base):
     __tablename__ = "saas_support_messages"
+    __table_args__ = (
+        Index(
+            "ix_saas_support_messages_ticket_client_msg",
+            "ticket_id",
+            "client_msg_id",
+            unique=True,
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=_uuid)
     ticket_id: Mapped[uuid.UUID] = mapped_column(
@@ -199,7 +212,10 @@ class SupportMessage(Base):
     author_user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("saas_users.id"), nullable=False
     )
-    body: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    image_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    # Client-generated id — retries must not create duplicate rows / TG spam
+    client_msg_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     ticket: Mapped[SupportTicket] = relationship(back_populates="messages")

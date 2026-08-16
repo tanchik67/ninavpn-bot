@@ -18,6 +18,7 @@ from core.domain.enums import (
 )
 from core.ports.notifications import NotificationMessage
 from core.services.audit import write_audit
+from core.services.config_links import apply_links_to_subscription
 from core.services.qr import build_deeplinks, make_qr_base64
 from infrastructure.db.models import (
     NotificationOutbox,
@@ -106,14 +107,12 @@ async def run_provision_for_payment(session: AsyncSession, payment_id: int) -> S
 
     links = result.links or []
     primary = links[0] if links else (result.subscription_url or "")
-    extra = links[1] if len(links) > 1 else None
-    qr = make_qr_base64(primary) if primary else None
+    apply_links_to_subscription(sub, links, primary=result.subscription_url or primary)
+    qr = make_qr_base64(sub.config_link) if sub.config_link else None
 
     sub.status = SubscriptionStatus.ACTIVE.value
     sub.panel_uuid = result.uuid
     sub.panel_client_email = client_email(user.panel_user_key, username)
-    sub.config_link = primary or result.subscription_url
-    sub.config_link_extra = extra
     sub.config_qr = qr
     sub.started_at = sub.started_at or datetime.utcnow()
     sub.expires_at = result.expires_at
@@ -156,6 +155,13 @@ async def run_provision_for_payment(session: AsyncSession, payment_id: int) -> S
         meta={"payment_id": payment_id},
     )
     await session.commit()
+
+    try:
+        from core.services.referrals import grant_referrer_bonus_for_payment
+
+        await grant_referrer_bonus_for_payment(session, payer_user_id=user.id)
+    except Exception:
+        log.exception("referral bonus failed payment_id=%s", payment_id)
 
     # Best-effort immediate notify
     try:

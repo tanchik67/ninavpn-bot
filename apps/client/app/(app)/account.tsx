@@ -1,8 +1,9 @@
 import { router } from "expo-router";
 import { goBackOr } from "../../src/lib/nav";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 import { AppText as Text } from "../../src/components/AppText";
+import { BackCircleButton } from "../../src/components/BackCircleButton";
 import { Field } from "../../src/components/Field";
 import { GlassCard } from "../../src/components/GlassCard";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
@@ -10,6 +11,7 @@ import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api, API_URL } from "../../src/lib/api";
 import { useAuth } from "../../src/lib/auth";
+import { confirmLogout } from "../../src/lib/confirmLogout";
 import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, spacing } from "../../src/lib/theme";
 
@@ -59,9 +61,10 @@ export default function AccountScreen() {
   return (
     <ScreenBackground>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Pressable onPress={() => goBackOr("/(app)/(tabs)/profile")} hitSlop={12}>
-          <Text style={styles.back}>{t("common.back")}</Text>
-        </Pressable>
+        <BackCircleButton
+          onPress={() => goBackOr("/(app)/(tabs)/profile")}
+          style={styles.backBtn}
+        />
         <NinaLogo size={24} />
         <ScreenTitle>{t("account.title")}</ScreenTitle>
 
@@ -117,7 +120,18 @@ export default function AccountScreen() {
         </GlassCard>
 
         <Text style={styles.api}>{t("account.apiLabel", { url: API_URL })}</Text>
-        <PrimaryButton variant="secondary" label={t("common.logout")} onPress={logout} />
+        <PrimaryButton
+          variant="secondary"
+          label={t("common.logout")}
+          onPress={() =>
+            confirmLogout({
+              message: t("common.logoutConfirm"),
+              yes: t("common.yes"),
+              no: t("common.no"),
+              onConfirm: logout,
+            })
+          }
+        />
       </ScrollView>
     </ScreenBackground>
   );
@@ -130,7 +144,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
     gap: 8,
   },
-  back: { color: colors.accent, fontFamily: fonts.bodySemi, marginBottom: 8 },
+  backBtn: { marginBottom: 8 },
   section: {
     color: colors.text,
     fontFamily: fonts.bodyBold,

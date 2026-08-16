@@ -51,6 +51,7 @@ class Subscription(Base):
     marzban_uuid  = Column(String(64), nullable=True)    # UUID пользователя в Marzban
     config_link   = Column(Text, nullable=True)          # основная subscription / vless ссылка
     config_link_extra = Column(Text, nullable=True)      # вторая ссылка (второй узел 3x-ui)
+    config_links  = Column(Text, nullable=True)          # JSON-массив всех ссылок (multi-inbound)
     config_qr     = Column(Text, nullable=True)          # base64 QR-кода
     started_at    = Column(DateTime, default=datetime.utcnow)
     expires_at    = Column(DateTime, nullable=True)
@@ -156,6 +157,10 @@ async def init_db():
             if scols and "config_link_extra" not in scols:
                 await conn.execute(
                     text("ALTER TABLE subscriptions ADD COLUMN config_link_extra TEXT")
+                )
+            if scols and "config_links" not in scols:
+                await conn.execute(
+                    text("ALTER TABLE subscriptions ADD COLUMN config_links TEXT")
                 )
 
 

@@ -2,8 +2,9 @@ import { router } from "expo-router";
 import { goBackOr } from "../../src/lib/nav";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import { AppText as Text } from "../../src/components/AppText";
+import { BackCircleButton } from "../../src/components/BackCircleButton";
 import { Field } from "../../src/components/Field";
 import { GlassCard } from "../../src/components/GlassCard";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
@@ -61,9 +62,10 @@ export default function SupportScreen() {
   return (
     <ScreenBackground>
       <View style={styles.wrap}>
-        <Pressable onPress={() => goBackOr("/(app)/(tabs)/settings")} hitSlop={12}>
-          <Text style={styles.back}>{t("common.back")}</Text>
-        </Pressable>
+        <BackCircleButton
+          onPress={() => goBackOr("/(app)/(tabs)/settings")}
+          style={styles.backBtn}
+        />
         <NinaLogo size={24} />
         <ScreenTitle>{t("support.title")}</ScreenTitle>
         <PrimaryButton
@@ -107,7 +109,7 @@ export default function SupportScreen() {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, padding: spacing.screen, paddingTop: 56 },
-  back: { color: colors.accent, fontFamily: fonts.bodySemi, marginBottom: 8 },
+  backBtn: { marginBottom: 8 },
   cardTitle: { color: colors.text, fontFamily: fonts.bodyBold },
   muted: { color: colors.muted, marginTop: 4, fontFamily: fonts.body },
   body: { color: colors.text, marginTop: 8, fontFamily: fonts.body },

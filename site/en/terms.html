@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of use — NINAVPN</title>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site.css">
+  <style>
+    .legal-wrap { max-width: 780px; margin: 0 auto; padding: 24px 16px 80px; }
+    .legal-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:32px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+    .lang-switch { display:inline-flex; gap:2px; padding:3px; border-radius:100px; border:1px solid var(--border); }
+    .lang-btn { border:none; background:transparent; color:var(--muted); font:600 0.78rem Onest,sans-serif; padding:7px 12px; border-radius:100px; cursor:pointer; }
+    .lang-btn.active { background:#7B2FFF; color:#fff; }
+    h1 { font-size:1.8rem; margin-bottom:8px; }
+    h2 { font-size:1.1rem; color:#a78bfa; margin:32px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+    p, li { color:#d4d0ee; margin-bottom:10px; }
+    ul { margin:8px 0 16px 20px; }
+    .warn { background:rgba(255,100,50,0.08); border:1px solid rgba(255,100,50,0.2); border-radius:8px; padding:12px 16px; margin:16px 0; }
+    .muted { color:var(--muted); font-size:0.9rem; }
+    a { color:#a78bfa; }
+  </style>
+</head>
+<body>
+<div class="legal-wrap">
+  <div class="legal-head">
+    <a class="brand" href="/"><img class="brand-mark" src="/assets/nina-wordmark.png" alt="NinaVPN" width="187" height="28"></a>
+    <div style="display:flex; gap:12px; align-items:center;">
+      <div class="lang-switch">
+        <button type="button" class="lang-btn" onclick="try{localStorage.setItem('nv_site_lang','ru')}catch(e){};location.href='/ninavpn-terms-2.html'">Русский</button>
+        <button type="button" class="lang-btn active">English</button>
+      </div>
+      <a class="muted" href="/">← Home</a>
+    </div>
+  </div>
+  <h1>Terms of use</h1>
+  <p class="muted">NINAVPN service · ninavpn.store</p>
+  <p>These Terms govern access to the NINAVPN VDS service at <a href="https://ninavpn.store">https://ninavpn.store</a>. Using the Service means you accept these Terms, the <a href="/en/privacy.html">Privacy policy</a>, and current pricing.</p>
+
+  <h2>Subject</h2>
+  <p>The Service provides access to VDS servers using v2ray/XTLS for encrypted traffic, bypassing blocks (Instagram, YouTube, TikTok), and IP change. Plans start from 100 ₽/mo with up to 10 devices. No-logs policy means we do not record your traffic.</p>
+
+  <h2>Registration and payment</h2>
+  <p>Registration requires an email and plan payment. Access activates immediately. Refunds are available within 24 hours for technical issues. Card details are not stored by us.</p>
+
+  <h2>User obligations</h2>
+  <ul>
+    <li>Use the Service only for lawful purposes</li>
+    <li>Do not share the account beyond the device limit</li>
+    <li>Comply with laws of your country and server jurisdictions</li>
+  </ul>
+  <div class="warn">⚠️ <strong>Forbidden:</strong> spam, DDoS, pirated torrents, malware distribution. Violations lead to blocking without refund.</div>
+
+  <h2>Limitations</h2>
+  <ul>
+    <li>Speed depends on load and your ISP (typically 50–200 Mbps)</li>
+    <li>Servers may be briefly unavailable for maintenance</li>
+    <li>No guarantee of bypassing every block — use at your own risk</li>
+  </ul>
+
+  <h2>Liability</h2>
+  <p>We are not liable for data loss, damages from VDS use, third-party account bans, or third-party app failures. Maximum liability is the amount of the last payment.</p>
+
+  <h2>Termination</h2>
+  <p>Terms apply until account deletion. We may update Terms with notice on the site (7 days). Violations may result in immediate blocking.</p>
+  <p>Questions: <a href="mailto:hssestandards@gmail.com">hssestandards@gmail.com</a></p>
+  <p>Channel: <a href="https://t.me/ninavpn_official" target="_blank" rel="noopener">@ninavpn_official</a></p>
+  <p class="muted">Last updated: 7 May 2026</p>
+</div>
+<script>
+  try { localStorage.setItem('nv_site_lang', 'en'); } catch (e) {}
+  document.querySelector('.lang-btn:not(.active)').addEventListener('click', function () {
+    try { localStorage.setItem('nv_site_lang', 'ru'); } catch (e) {}
+  });
+</script>
+</body>
+</html>

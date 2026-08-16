@@ -71,11 +71,25 @@ async def login_user(
 ) -> tuple[User, str, str]:
     email_n = email.strip().lower()
     user = await session.scalar(select(User).where(User.email == email_n))
-    if (
+    placeholder = email_n.endswith("@telegram.local") or email_n.endswith(
+        "@tg.ninavpn.store"
+    )
+    # Placeholder emails are for Telegram accounts; only allow password if user set one
+    if placeholder:
+        if (
+            not user
+            or not user.password_hash
+            or not verify_password(password, user.password_hash)
+        ):
+            raise AuthError("use_telegram_login", "Use Telegram login for this account")
+    elif (
         not user
         or not user.password_hash
         or not verify_password(password, user.password_hash)
     ):
+        # Telegram-linked account without password (real email after merge, etc.)
+        if user and not user.password_hash and user.tg_id is not None:
+            raise AuthError("use_telegram_login", "Use Telegram login for this account")
         raise AuthError("invalid_credentials", "Invalid email or password")
     if user.is_banned:
         raise AuthError("banned", "Account is banned")
@@ -184,12 +198,20 @@ async def login_or_register_telegram(
 async def refresh_session(session: AsyncSession, refresh_token: str) -> tuple[User, str, str]:
     th = hash_token(refresh_token)
     row = await session.scalar(select(RefreshToken).where(RefreshToken.token_hash == th))
-    if not row or row.revoked_at is not None or row.expires_at < datetime.utcnow():
+    now = datetime.utcnow()
+    if not row or row.expires_at < now:
         raise AuthError("invalid_refresh", "Invalid refresh token")
+    # Grace window: concurrent mobile requests often refresh the same token twice.
+    # Accept a just-rotated token for ~90s so the second caller gets a fresh pair
+    # instead of 401 → client timeout storms.
+    if row.revoked_at is not None:
+        if row.revoked_at < now - timedelta(seconds=90):
+            raise AuthError("invalid_refresh", "Invalid refresh token")
     user = await session.get(User, row.user_id)
     if not user or user.is_banned:
         raise AuthError("invalid_refresh", "Invalid refresh token")
-    row.revoked_at = datetime.utcnow()
+    if row.revoked_at is None:
+        row.revoked_at = now
     access, new_refresh = await _issue_tokens(session, user)
     await session.commit()
     return user, access, new_refresh

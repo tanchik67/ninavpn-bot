@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  View,
   ViewStyle,
 } from "react-native";
 import { AppText as Text } from "./AppText";
@@ -32,11 +33,10 @@ export function PrimaryButton({
         disabled={disabled || busy}
         style={[styles.secondary, style, (disabled || busy) && { opacity: 0.5 }]}
       >
-        {busy ? (
-          <ActivityIndicator color={colors.text} />
-        ) : (
-          <Text style={styles.secondaryText}>{label}</Text>
-        )}
+        <View style={styles.row}>
+          {busy ? <ActivityIndicator color={colors.text} style={styles.spinner} /> : null}
+          <Text style={styles.secondaryText}>{busy ? `${label}…` : label}</Text>
+        </View>
       </Pressable>
     );
   }
@@ -45,14 +45,13 @@ export function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={disabled || busy}
-      style={[style, (disabled || busy) && { opacity: 0.55 }]}
+      style={[style, (disabled || busy) && { opacity: 0.7 }]}
     >
       <LinearGradient colors={[...gradients.button]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
-        {busy ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.text}>{label}</Text>
-        )}
+        <View style={styles.row}>
+          {busy ? <ActivityIndicator color="#fff" style={styles.spinner} /> : null}
+          <Text style={styles.text}>{busy ? `${label}…` : label}</Text>
+        </View>
       </LinearGradient>
     </Pressable>
   );
@@ -67,6 +66,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 54,
   },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  spinner: { transform: [{ scale: 0.9 }] },
   text: {
     color: "#fff",
     fontFamily: fonts.bodyBold,

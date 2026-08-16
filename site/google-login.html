@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Вход через Google — NinaVPN</title>
+  <style>
+    :root { --bg: #060608; --text: #F0EEFF; --muted: #6B6B8A; --accent: #7B2FFF; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 32px 20px;
+      text-align: center;
+      gap: 16px;
+    }
+    h1 { font-size: 1.35rem; font-weight: 700; }
+    p { color: var(--muted); font-size: 0.95rem; max-width: 320px; line-height: 1.45; }
+    .err { color: #ff6b8a; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>NinaVPN</h1>
+  <p id="status">Открываем вход Google…</p>
+  <p class="err" id="err" hidden></p>
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var hash = new URLSearchParams((location.hash || "").replace(/^#/, ""));
+      var clientId = params.get("client_id") || "";
+      var appRedirect = params.get("redirect") || "ninavpn://google-auth";
+      var statusEl = document.getElementById("status");
+      var errEl = document.getElementById("err");
+
+      function fail(msg) {
+        statusEl.textContent = "";
+        errEl.hidden = false;
+        errEl.textContent = msg;
+      }
+
+      function finishWithToken(idToken) {
+        if (!idToken) {
+          fail("Google не вернул токен");
+          return;
+        }
+        var sep = appRedirect.indexOf("?") >= 0 ? "&" : "?";
+        location.href = appRedirect + sep + "id_token=" + encodeURIComponent(idToken);
+      }
+
+      // Return from Google (implicit id_token in hash)
+      var idToken = hash.get("id_token");
+      var oauthErr = hash.get("error") || params.get("error");
+      if (oauthErr) {
+        fail("Google: " + oauthErr);
+        return;
+      }
+      if (idToken) {
+        statusEl.textContent = "Готово, возвращаемся в приложение…";
+        finishWithToken(idToken);
+        return;
+      }
+
+      if (!clientId) {
+        fail("Не указан client_id");
+        return;
+      }
+
+      // Must be listed as Authorized redirect URI in Google Cloud (Web client)
+      var redirectUri = location.origin + location.pathname;
+      var nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try { sessionStorage.setItem("nv_google_nonce", nonce); } catch (e) {}
+
+      var q = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: "id_token",
+        scope: "openid email profile",
+        nonce: nonce,
+        prompt: "select_account"
+      });
+      location.href = "https://accounts.google.com/o/oauth2/v2/auth?" + q.toString();
+    })();
+  </script>
+</body>
+</html>

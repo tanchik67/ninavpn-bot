@@ -12,7 +12,7 @@ import { GlassCard } from "../../src/components/GlassCard";
 import { NinaLogo } from "../../src/components/NinaLogo";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
-import { SocialAuthButtons } from "../../src/components/SocialAuthButtons";
+import { formatApiError } from "../../src/lib/apiErrors";
 import { useAuth } from "../../src/lib/auth";
 import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, spacing } from "../../src/lib/theme";
@@ -28,11 +28,17 @@ export default function RegisterScreen() {
   const onSubmit = async () => {
     setBusy(true);
     setError("");
+    const started = Date.now();
     try {
       await register(email.trim(), password);
       router.replace("/(app)/(tabs)/home");
-    } catch (e: any) {
-      setError(e?.message || t("register.errorGeneric"));
+    } catch (e: unknown) {
+      const msg = formatApiError(e, t("register.errorGeneric"));
+      setError(
+        Date.now() - started > 12000 && /network|HTTP|отвечает/i.test(msg)
+          ? t("register.errorSlow")
+          : msg
+      );
     } finally {
       setBusy(false);
     }
@@ -70,10 +76,6 @@ export default function RegisterScreen() {
             />
             {!!error && <Text style={styles.error}>{error}</Text>}
             <PrimaryButton label={t("common.continue")} onPress={onSubmit} busy={busy} />
-            <SocialAuthButtons
-              onSuccess={() => router.replace("/(app)/(tabs)/home")}
-              onError={setError}
-            />
           </GlassCard>
 
           <Link href="/(auth)/login" style={styles.link}>

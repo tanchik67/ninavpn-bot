@@ -1,0 +1,50 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'store.ninavpn.vpn'
+version = '0.1.0'
+
+android {
+  namespace "store.ninavpn.vpn"
+  compileSdkVersion safeExtGet("compileSdkVersion", 35)
+
+  defaultConfig {
+    minSdkVersion safeExtGet("minSdkVersion", 24)
+    targetSdkVersion safeExtGet("targetSdkVersion", 35)
+  }
+
+  lintOptions {
+    abortOnError false
+  }
+
+  sourceSets {
+    main {
+      jniLibs.srcDirs += ['libs']
+    }
+  }
+}
+
+repositories {
+  mavenCentral()
+  google()
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+  implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${safeExtGet('kotlinVersion', '1.9.24')}"
+  implementation "androidx.core:core-ktx:1.13.1"
+
+  // AndroidLibXrayLite (Xray-core) — required for VLESS+Reality against our panels.
+  // Place release AAR from https://github.com/2dust/AndroidLibXrayLite/releases
+  def localAar = file("${projectDir}/libs/libv2ray.aar")
+  if (!localAar.exists()) {
+    throw new GradleException(
+      "Missing ${localAar}. Download libv2ray.aar into modules/nina-vpn/android/libs/"
+    )
+  }
+  implementation files(localAar)
+}
+
+def safeExtGet(prop, fallback) {
+  rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}

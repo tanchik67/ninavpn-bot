@@ -10,22 +10,29 @@ import {
   View,
 } from "react-native";
 import { AppText as Text } from "../../src/components/AppText";
+import { BackCircleButton } from "../../src/components/BackCircleButton";
 import { ScreenBackground } from "../../src/components/ScreenBackground";
 import { api } from "../../src/lib/api";
+import {
+  loadCachedAdminInbox,
+  saveCachedAdminInbox,
+  type AdminTicketRow,
+} from "../../src/lib/adminSupportCache";
+import {
+  peekCachedAdminInbox,
+} from "../../src/lib/adminSupportCache";
+import {
+  prefetchAdminInbox,
+  prefetchAdminTicket,
+  warmAdminTickets,
+} from "../../src/lib/adminSupportPrefetch";
+import { bumpOutboxNow } from "../../src/lib/supportOutbox";
+import { flushSupportOutbox } from "../../src/lib/supportOutboxFlush";
 import { useAuth } from "../../src/lib/auth";
 import { useI18n } from "../../src/lib/i18n";
 import { colors, fonts, radii, spacing } from "../../src/lib/theme";
 
-type TicketRow = {
-  id: string;
-  subject: string;
-  status: string;
-  user_email: string;
-  last_message: string | null;
-  last_message_at: string | null;
-  last_is_staff: boolean;
-  created_at: string;
-};
+type TicketRow = AdminTicketRow;
 
 function isStaffRole(role?: string) {
   return role === "admin" || role === "support";
@@ -44,23 +51,69 @@ export default function AdminInboxScreen() {
     return status;
   };
 
-  const load = useCallback(async () => {
-    const data = await api<TicketRow[]>("/api/v1/support/admin/tickets");
+  const load = useCallback(async (quiet = false) => {
+    const data = await api<TicketRow[]>("/api/v1/support/admin/tickets", {
+      timeoutMs: 8000,
+      retries: 0,
+      priority: !quiet,
+    });
     setRows(data);
+    await saveCachedAdminInbox(data);
     setError("");
+    // Quiet polls must not re-warm tickets (that fights the open chat fetch).
+    if (!quiet) void warmAdminTickets(data);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       if (!isStaffRole(user?.role)) return;
-      setLoading(true);
-      load()
-        .catch(() => setError(t("adminInbox.errorLoad")))
-        .finally(() => setLoading(false));
+      let alive = true;
+
+      (async () => {
+        // Instant paint: memory first, then AsyncStorage
+        const mem = peekCachedAdminInbox();
+        const cached = mem || (await loadCachedAdminInbox());
+        if (!alive) return;
+        if (cached?.length) {
+          setRows(cached);
+          setLoading(false);
+          setError("");
+          void warmAdminTickets(cached);
+        } else {
+          setLoading(true);
+        }
+
+        try {
+          await load(!!cached?.length);
+          if (alive) setError("");
+        } catch {
+          if (alive && !cached?.length) {
+            // Try shared prefetch once more
+            const again = await prefetchAdminInbox({ force: true, attempts: 2 });
+            if (alive && again?.length) {
+              setRows(again);
+              setError("");
+            } else if (alive && !cached?.length) {
+              setError(t("adminInbox.errorLoad"));
+            }
+          }
+        } finally {
+          if (alive) setLoading(false);
+        }
+
+        // Deliver any staff replies that never left the phone
+        void bumpOutboxNow().then(() =>
+          flushSupportOutbox({ staffOnly: true, ignoreSchedule: true })
+        );
+      })();
+
       const timer = setInterval(() => {
-        load().catch(() => {});
-      }, 10000);
-      return () => clearInterval(timer);
+        load(true).catch(() => {});
+      }, 25000);
+      return () => {
+        alive = false;
+        clearInterval(timer);
+      };
     }, [load, user?.role, t])
   );
 
@@ -71,18 +124,16 @@ export default function AdminInboxScreen() {
   return (
     <ScreenBackground>
       <View style={styles.header}>
-        <Pressable onPress={() => goBackOr("/(app)/(tabs)/settings")} hitSlop={12}>
-          <Text style={styles.back}>{t("common.back")}</Text>
-        </Pressable>
+        <BackCircleButton onPress={() => goBackOr("/(app)/(tabs)/settings")} />
         <Text style={styles.title}>{t("adminInbox.title")}</Text>
-        <View style={{ width: 64 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {loading && !rows.length ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.accent} />
         </View>
-      ) : error ? (
+      ) : error && !rows.length ? (
         <View style={styles.center}>
           <Text style={styles.error}>{error}</Text>
         </View>
@@ -101,12 +152,17 @@ export default function AdminInboxScreen() {
             return (
               <Pressable
                 style={[styles.row, waiting && styles.rowWaiting]}
-                onPress={() =>
+                onPress={() => {
+                  // Always refresh thread — stale cache had wrong is_staff labels
+                  void prefetchAdminTicket(item.id, {
+                    force: true,
+                    inboxRow: item,
+                  });
                   router.push({
                     pathname: "/(app)/support-chat",
                     params: { ticketId: item.id, email: item.user_email },
-                  })
-                }
+                  });
+                }}
               >
                 <View style={styles.rowTop}>
                   <Text style={styles.email} numberOfLines={1}>
@@ -147,12 +203,7 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 12,
   },
-  back: {
-    color: colors.accent,
-    fontSize: 16,
-    fontFamily: fonts.bodySemi,
-    width: 64,
-  },
+  headerSpacer: { width: 36 },
   title: {
     color: colors.text,
     fontSize: 17,

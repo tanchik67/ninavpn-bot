@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { goBackOr } from "../../src/lib/nav";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { AppText as Text } from "../../src/components/AppText";
 import * as WebBrowser from "expo-web-browser";
+import { BackCircleButton } from "../../src/components/BackCircleButton";
 import { NinaLogo, ScreenTitle } from "../../src/components/NinaLogo";
 import { GlassCard } from "../../src/components/GlassCard";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
@@ -150,9 +151,10 @@ export default function PayScreen() {
   return (
     <ScreenBackground>
       <View style={styles.wrap}>
-        <Pressable onPress={() => goBackOr("/(app)/(tabs)/home")} hitSlop={12}>
-          <Text style={styles.back}>{t("common.back")}</Text>
-        </Pressable>
+        <BackCircleButton
+          onPress={() => goBackOr("/(app)/(tabs)/home")}
+          style={styles.backBtn}
+        />
         <NinaLogo size={24} />
         <ScreenTitle>{t("pay.title")}</ScreenTitle>
         <GlassCard style={{ gap: 12 }}>
@@ -187,7 +189,7 @@ export default function PayScreen() {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, padding: spacing.screen, paddingTop: 56, gap: 14 },
-  back: { color: colors.accent, fontFamily: fonts.bodySemi },
+  backBtn: { marginBottom: 8 },
   status: { color: colors.text, fontFamily: fonts.bodySemi },
   muted: { color: colors.muted, fontSize: 13, fontFamily: fonts.body },
   error: { color: colors.danger, fontFamily: fonts.body },
